@@ -26,7 +26,7 @@ export default function FeaturesSection() {
       icon: Search,
       title: "Search Any Handle",
       description:
-        "Look up any Lens user by handle to see their complete tipping history — both sent and received.",
+        "Look up any Lens user by handle to see their tips made on 2026 — both sent and received, grouped by token: $GHO, $BONSAI and $POINTLESS.",
       action: () => {
         document.dispatchEvent(
           new KeyboardEvent("keydown", { key: "k", metaKey: true })
@@ -51,14 +51,14 @@ export default function FeaturesSection() {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto"
+        className="flex flex-wrap justify-center gap-6 max-w-4xl mx-auto"
       >
         {features.map((feature) => (
           <motion.button
             key={feature.title}
             variants={cardVariants}
             onClick={feature.action}
-            className="group rounded-2xl bg-zinc-950/40 border border-zinc-800/50 p-6 flex flex-col gap-4 cursor-pointer text-left"
+            className="group rounded-2xl bg-zinc-950/40 border border-zinc-800/50 p-6 flex flex-col gap-4 cursor-pointer text-left w-full sm:w-[calc(50%-0.75rem)] max-w-sm"
           >
             <div className="w-10 h-10 rounded-lg bg-zinc-800/60 group-hover:bg-yellow-500/10 flex items-center justify-center transition-colors duration-300">
               <feature.icon className="w-5 h-5 text-zinc-400 group-hover:text-yellow-300 transition-colors duration-300" />
