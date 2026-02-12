@@ -3,6 +3,7 @@ import ClickSpark from "@/components/ClickSpark"
 import HeroSection from "@/components/landing/HeroSection"
 import TokenShowcase from "@/components/landing/TokenShowcase"
 import FeaturesSection from "@/components/landing/FeaturesSection"
+import DarkVeil from "@/components/DarkVeil"
 
 export const generateMetadata = async () => {
   const ogImage = `https://lctips.xyz/thumbnail.png`
@@ -44,8 +45,18 @@ export const generateMetadata = async () => {
 
 const Home = async () => {
   return (
-    <div className="relative w-full">
+    <div className="w-full overflow-hidden">
       <AuroraBackground />
+      <div className="z-0 absolute top-0 left-0 w-[100vw] h-full pointer-events-none opacity-30">
+        <DarkVeil
+          hueShift={58}
+          noiseIntensity={0}
+          scanlineIntensity={0}
+          speed={1}
+          scanlineFrequency={0}
+          warpAmount={0}
+        />
+      </div>
       <div className="z-10 absolute top-0 left-0 w-full h-full pointer-events-none">
         <ClickSpark
           sparkColor="#ffffff"

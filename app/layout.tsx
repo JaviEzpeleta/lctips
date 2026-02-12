@@ -47,7 +47,7 @@ export default function RootLayout({
         />
         <NoiseLayer />
         <Web3Provider network="mainnet">
-          <div className="p-0 sm:p-4 flex-1 flex flex-col pb-8">{children}</div>
+          <div className="p-0 sm:p-4 flex-1 flex flex-col pb-8 relative">{children}</div>
           <Footer />
         </Web3Provider>
       </body>
