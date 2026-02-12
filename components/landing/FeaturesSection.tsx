@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Search, BarChart3, Users } from "lucide-react"
+import { Search, Trophy } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 const containerVariants = {
@@ -34,7 +34,7 @@ export default function FeaturesSection() {
       },
     },
     {
-      icon: Users,
+      icon: Trophy,
       title: "Discover Top Rewards Recipients",
       description:
         "During a part of 2025 Lens Chain hada Rewards Program. This section shows the top recipients of these rewards.",
