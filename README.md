@@ -4,7 +4,7 @@ A Next.js application for visualizing tips on Lens Chain. Search for Lens protoc
 
 > **Note:** Most Lens clients no longer support tipping in BONSAI. Historical BONSAI tips are still tracked, but new activity is rare.
 
-🌐 **Live Demo**: [https://lctips.xyz](https://lctips.xyz)
+🌐 **Live**: [https://lctips.xyz](https://lctips.xyz)
 
 ![LCTips Screenshot](public/img/lctips-screenshot.webp)
 
@@ -148,3 +148,7 @@ This project is open source and available under the [MIT License](LICENSE).
 ---
 
 **Note**: This application is designed specifically for Lens Chain and may not work with other blockchain networks without modification.
+
+**Note**: For most Lens OG users, calculating all the tips since Lens V3 went live, was taking too long for the live version, so currently it only looks for tips made this 2026, but you can tweak it locally.. or, please, if i can help u in any way, contact me on Orb! Thanks so much for reading.
+
+
