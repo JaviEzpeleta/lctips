@@ -12,7 +12,7 @@ const tokens = [
   },
   {
     name: "BONSAI",
-    description: "Most Lens clients no longer support Bonsai tipping. Historical tips are still tracked here!",
+    description: "PSA: Most Lens clients no longer support Bonsai tipping.",
     logo: "/img/bonsai-logo.webp",
     gradient: "from-green-400/20 to-green-600/0",
   },
