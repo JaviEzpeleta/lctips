@@ -1,0 +1,13 @@
+query publications($request: PublicationsQueryRequest!) {
+  publications(request: $request) {
+    items {
+      __typename
+      ... on Post {
+        ...PostFields
+      }
+    }
+    pageInfo {
+      ...CommonPaginatedResultInfoFields
+    }
+  }
+}

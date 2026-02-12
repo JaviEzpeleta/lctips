@@ -1,36 +1,145 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LCTips
+
+A Next.js application for visualizing tips on Lens Chain. Search for Lens protocol users and explore their tip transaction history (both sent and received) in GHO, BONSAI, and POINTLESS tokens.
+
+🌐 **Live Demo**: [https://lctips.xyz](https://lctips.xyz)
+
+## Features
+
+- 🔍 **Real-time Search** - Find Lens protocol users with 300ms debounced search
+- 💸 **Tip Visualization** - View sent and received tips in GHO, BONSAI, and POINTLESS
+- 📊 **Transaction Aggregation** - Grouped and sorted tip history by sender/receiver
+- ⚡ **Fast Performance** - Built with Next.js 15, Turbopack, and React 19
+- 📱 **Responsive Design** - Beautiful UI with TailwindCSS v4 and Radix UI
+- 🔗 **Web3 Integration** - Connect wallets with ConnectKit and Wagmi
+
+## Tech Stack
+
+### Core Technologies
+- **Next.js 15** with App Router and Turbopack
+- **React 19** with TypeScript
+- **TailwindCSS v4** with tw-animate-css
+- **Lens Protocol SDK** (@lens-protocol/react, @lens-protocol/client)
+- **Wagmi/ConnectKit** for Web3 wallet connections
+
+### Blockchain & APIs
+- **ethers.js** for blockchain interactions
+- **Lens Chain** (RPC: https://rpc.lens.xyz/)
+- **Lens Explorer API** for transaction history
+- **Lens GraphQL API** for profile data
+
+### UI & Animation
+- **Radix UI** components
+- **Framer Motion** for animations
+- **@number-flow/react** for animated number transitions
+- **Lucide React** icons
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ and npm
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/JaviEzpeleta/lctips.git
+   cd lctips
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Environment Setup**
+   ```bash
+   cp .env.example .env.local
+   ```
+   Then edit `.env.local` and add your WalletConnect Project ID (get one at [cloud.walletconnect.com](https://cloud.walletconnect.com)).
+
+4. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+5. **Open in browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+### Build for Production
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build
+npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Project Structure
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+├── app/                    # Next.js app router
+│   ├── api/               # API routes
+│   │   ├── profile/       # Main profile + tips endpoint
+│   │   ├── basic-profile/ # Basic profile data
+│   │   ├── profile-data-by-address/ # Profile lookup by address
+│   │   └── all-rewards/   # Rewards aggregation
+│   ├── (tips)/            # Route group
+│   │   ├── u/[handle]/    # Dynamic user profile pages
+│   │   └── rewards/       # Rewards leaderboard
+│   └── ...                # Layout, global styles, root page
+├── components/            # React components
+│   ├── search/           # Search functionality
+│   ├── ui/               # UI library components
+│   └── ...               # Tip display, loading states, profile views
+├── lib/                  # Core utilities
+│   ├── lens-api.ts       # Lens Protocol GraphQL client
+│   ├── lens-explorer.ts  # Transaction fetching via Lens Explorer
+│   ├── constants.ts      # App constants
+│   ├── types.ts          # TypeScript type definitions
+│   ├── utils.ts          # Utility functions
+│   ├── time.ts           # Time formatting helpers
+│   └── graphql/          # GraphQL queries & mutations
+├── hooks/                # Custom React hooks
+└── public/               # Static assets
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Key Features Explained
 
-## Learn More
+### Transaction Processing
+1. **Profile Search** - Users search for Lens handles with real-time results
+2. **Data Fetching** - Parallel fetching from multiple APIs:
+   - Lens GraphQL API for profile data
+   - Lens Explorer API for transaction history (paginated)
+   - ethers.js for GHO transaction details
+3. **Aggregation** - Groups transactions by sender/receiver, sums amounts, applies 0.01 minimum threshold
+4. **Visualization** - Displays in organized tabs with animated counters
 
-To learn more about Next.js, take a look at the following resources:
+### Supported Tokens
+- **GHO** - Native Lens Chain currency (primary tipping token)
+- **BONSAI** - Bonsai token tips
+- **POINTLESS** - Pointless token tips
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Contributing
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Deploy on Vercel
+### Development Guidelines
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Follow existing code style and patterns
+- Keep console.log statements to essential error logging only
+- Use TypeScript for type safety
+- Test your changes before submitting
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+This project is open source and available under the [MIT License](LICENSE).
+
+## Acknowledgments
+
+- Built for the Lens Protocol ecosystem
+- Uses Lens Chain infrastructure
+- UI components from Radix UI
+
+---
+
+**Note**: This application is designed specifically for Lens Chain and may not work with other blockchain networks without modification.
