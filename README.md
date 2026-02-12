@@ -6,6 +6,8 @@ A Next.js application for visualizing tips on Lens Chain. Search for Lens protoc
 
 🌐 **Live Demo**: [https://lctips.xyz](https://lctips.xyz)
 
+![LCTips Screenshot](public/img/lctips-screenshot.webp)
+
 ## Features
 
 - 🔍 **Real-time Search** - Find Lens protocol users with 300ms debounced search
