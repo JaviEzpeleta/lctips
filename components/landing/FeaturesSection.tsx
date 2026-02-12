@@ -26,7 +26,7 @@ export default function FeaturesSection() {
       icon: Search,
       title: "Search Any Handle",
       description:
-        "Look up any Lens user by handle to see their tips made on 2026 — both sent and received, grouped by token: $GHO, $BONSAI and $POINTLESS.",
+        "Look up any Lens user by handle to see their tips made on 2026 — both sent and received, grouped by token: $GHO, $BONSAI and $POINTLESS. Find who's tipping your favorite people and discover new accounts!",
       action: () => {
         document.dispatchEvent(
           new KeyboardEvent("keydown", { key: "k", metaKey: true })
@@ -37,7 +37,7 @@ export default function FeaturesSection() {
       icon: Trophy,
       title: "Discover Top Rewards Recipients",
       description:
-        "During a part of 2025 Lens Chain hada Rewards Program. This section shows the top recipients of these rewards.",
+        "During a part of 2025 Lens Chain had a Rewards Program. This section shows the top recipients of these rewards.",
       action: () => {
         router.push("/rewards")
       },

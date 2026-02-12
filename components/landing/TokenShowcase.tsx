@@ -12,7 +12,7 @@ const tokens = [
   },
   {
     name: "BONSAI",
-    description: "Sorry but if you use Bonsai it's like a red flag or something weird. Use Pointless instead!",
+    description: "Most Lens clients no longer support Bonsai tipping. Historical tips are still tracked here!",
     logo: "/img/bonsai-logo.webp",
     gradient: "from-green-400/20 to-green-600/0",
   },

@@ -1,6 +1,8 @@
 # LCTips
 
-A Next.js application for visualizing tips on Lens Chain. Search for Lens protocol users and explore their tip transaction history (both sent and received) in GHO, BONSAI, and POINTLESS tokens.
+A Next.js application for visualizing tips on Lens Chain. Search for Lens protocol users and explore their tip transaction history (both sent and received) in GHO, BONSAI, and POINTLESS tokens. Discover new profiles by seeing who tips the people you love — find new accounts through tipping activity!
+
+> **Note:** Most Lens clients no longer support tipping in BONSAI. Historical BONSAI tips are still tracked, but new activity is rare.
 
 🌐 **Live Demo**: [https://lctips.xyz](https://lctips.xyz)
 
@@ -12,6 +14,7 @@ A Next.js application for visualizing tips on Lens Chain. Search for Lens protoc
 - ⚡ **Fast Performance** - Built with Next.js 15, Turbopack, and React 19
 - 📱 **Responsive Design** - Beautiful UI with TailwindCSS v4 and Radix UI
 - 🔗 **Web3 Integration** - Connect wallets with ConnectKit and Wagmi
+- 👀 **Profile Discovery** - See who tips your favorite people and discover new profiles through tipping
 
 ## Tech Stack
 
@@ -116,7 +119,7 @@ npm start
 
 ### Supported Tokens
 - **GHO** - Native Lens Chain currency (primary tipping token)
-- **BONSAI** - Bonsai token tips
+- **BONSAI** - Bonsai token tips *(most Lens clients no longer support Bonsai tipping — historical data only)*
 - **POINTLESS** - Pointless token tips
 
 ## Contributing

@@ -12,14 +12,14 @@ export const generateMetadata = async () => {
 
   const appName = "LCTips.xyz"
   const theTitle = `LCTips`
-  const theDescription = "Visualize tips on Lens Chain"
+  const theDescription = "Visualize tips on Lens Chain. Discover new profiles through tipping!"
 
   return {
     title: theTitle,
     description: theDescription,
     applicationName: appName,
     referrer: "origin-when-cross-origin",
-    keywords: ["lens", "lens protocol", "lens chain", "tips", "visualize"],
+    keywords: ["lens", "lens protocol", "lens chain", "tips", "visualize", "discover", "profiles"],
     authors: [{ name: "LCTips" }],
     creator: "LCTips",
     publisher: "LCTips",
