@@ -1,28 +1,28 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { VideoText } from "@/components/ui/video-text"
+import { SplitText } from "@/components/ui/SplitText"
 import { Typewriter } from "@/components/ui/typewriter-text"
 import { Mouse, Search } from "lucide-react"
 
 export default function HeroSection() {
   return (
     <section className="relative min-h-[85vh] flex flex-col items-center justify-center px-4">
-      {/* VideoText title */}
-      <motion.div
-        initial={{ opacity: 0, y: 30, filter: "blur(12px)" }}
-        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-        transition={{ duration: 0.8, delay: 0.1 }}
-      >
-        <VideoText
-          src="/videos/0.mp4"
-          fontSize="16vw"
-          playbackRate={0.6}
-          className="select-none"
-        >
-          LCTips
-        </VideoText>
-      </motion.div>
+      {/* SplitText title */}
+      <SplitText
+        text="LCTips"
+        className="text-5xl sm:text-6xl md:text-7xl font-bold leading-none select-none text-zinc-100 mb-10"
+        delay={80}
+        duration={1.0}
+        ease="power3.out"
+        splitType="chars"
+        from={{ opacity: 0, y: 50, rotateX: -40 }}
+        to={{ opacity: 1, y: 0, rotateX: 0 }}
+        threshold={0.1}
+        rootMargin="-50px"
+        textAlign="center"
+        showCallback
+      />
 
       {/* Tagline + Typewriter */}
       <motion.div
