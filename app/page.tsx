@@ -3,6 +3,7 @@ import ClickSpark from "@/components/ClickSpark"
 import HeroSection from "@/components/landing/HeroSection"
 import TokenShowcase from "@/components/landing/TokenShowcase"
 import FeaturesSection from "@/components/landing/FeaturesSection"
+import LinksSection from "@/components/landing/LinksSection"
 import DarkVeil from "@/components/DarkVeil"
 
 export const generateMetadata = async () => {
@@ -72,6 +73,7 @@ const Home = async () => {
         <HeroSection />
         <TokenShowcase />
         <FeaturesSection />
+        <LinksSection />
       </div>
     </div>
   )

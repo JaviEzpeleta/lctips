@@ -45,7 +45,7 @@ export default function FeaturesSection() {
   ]
 
   return (
-    <section className="py-20 px-4 pb-32">
+    <section className="py-20 px-4">
       <motion.div
         variants={containerVariants}
         initial="hidden"
