@@ -3,8 +3,7 @@
 import { motion } from "framer-motion"
 import { VideoText } from "@/components/ui/video-text"
 import { Typewriter } from "@/components/ui/typewriter-text"
-import SearchForUser from "@/components/search/SearchForUser"
-import { Mouse } from "lucide-react"
+import { Mouse, Search } from "lucide-react"
 
 export default function HeroSection() {
   return (
@@ -61,9 +60,20 @@ export default function HeroSection() {
       >
         {/* Glow effect behind the search */}
         <div className="absolute -inset-4 bg-gradient-radial from-emerald-500/20 via-yellow-500/10 to-transparent rounded-3xl blur-2xl animate-glow-pulse pointer-events-none" />
-        <div className="relative">
-          <SearchForUser hideTitle={true} />
-        </div>
+        <button
+          onClick={() =>
+            document.dispatchEvent(
+              new KeyboardEvent("keydown", { key: "k", metaKey: true })
+            )
+          }
+          className="relative w-full flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-left text-sm text-zinc-500 transition-colors hover:border-zinc-700 hover:bg-zinc-900/60 cursor-pointer"
+        >
+          <Search className="h-4 w-4 shrink-0 text-zinc-500" />
+          <span className="flex-1">Search for a Lens handle...</span>
+          <kbd className="pointer-events-none hidden select-none rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 sm:inline-block">
+            ⌘K
+          </kbd>
+        </button>
       </motion.div>
 
       {/* Scroll indicator */}
