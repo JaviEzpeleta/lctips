@@ -4,14 +4,13 @@ import { useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import BlurryEntrance from "@/components/BlurryEntrance"
 import NumberFlow from "@number-flow/react"
-import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react"
+import { ChevronUp, ExternalLink } from "lucide-react"
 import AddressOrProfile from "@/components/AddressOrProfile"
 import StarWarsLoading from "@/components/StarWarsLoading"
-import { VideoText } from "@/components/ui/video-text"
 import { Button } from "@/components/ui/button"
 import { timeSince } from "@/lib/time"
 import TransactionChart from "@/components/TransactionChart"
-import { formatGHOAmount, formatLargeNumber } from "@/lib/utils"
+import {  formatLargeNumber } from "@/lib/utils"
 import Link from "next/link"
 
 import LensLogoSVG from "./LensLogoSVG"
@@ -234,7 +233,17 @@ export default function RewardsPage() {
   }
 
   return (
-    <div className="container mx-auto sm:p-6 max-w-4xl">
+    <>
+      {/* Fixed header */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-black/60 backdrop-blur-md border-b border-white/10">
+        <div className="max-w-4xl mx-auto flex items-center px-4 py-2">
+          <Link href="/" className="flex items-center gap-2 text-white hover:text-indigo-300 transition-colors active:opacity-50">
+            <span className="font-semibold text-sm">LCTips</span>
+          </Link>
+        </div>
+      </div>
+
+      <div className="container mx-auto sm:p-6 max-w-4xl pt-12">
       <BlurryEntrance>
         <div className="space-y-6">
           {/* Header */}
@@ -244,23 +253,7 @@ export default function RewardsPage() {
               <div>Lens Rewards: ranks and stats</div>
             </div>
           </div>
-          {/* <div className="text-center space-y-4">
-            <div className="flex items-center justify-center bg-gradient-to-br from-zinc-700 to-black ring-2 ring-offset-2 ring-black/30 ring-offset-transparent rounded-lg">
-              <VideoText
-                src={"/videos/0.mp4"}
-                className={"tracking-tighter font-black"}
-                fontSize={"12rem"}
-                playbackRate={1}
-              >
-                REWARDS
-              </VideoText>
-            </div>
-            <p className="text-zinc-600 text-lg text-balance">
-              Token rewards distributed to Lens Chain users, sorted by amount
-              received
-            </p>
-          </div> */}
-
+         
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             <Card className="gap-0 bg-gradient-to-br overflow-hidden from-indigo-100 to-indigo-500 border-indigo-800 border-2 relative">
@@ -564,5 +557,6 @@ export default function RewardsPage() {
         </div>
       </BlurryEntrance>
     </div>
+    </>
   )
 }

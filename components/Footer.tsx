@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import Kbd from "./Kbd"
 import { Button } from "./ui/button"
 import SearchDialog from "./SearchDialog"
@@ -8,6 +9,8 @@ import { useSearchDialog } from "@/hooks/useSearchDialog"
 
 const Footer = () => {
   const { open, onOpenChange, setOpen } = useSearchDialog()
+  const pathname = usePathname()
+  const isRewards = pathname === "/rewards"
 
   return (
     <>
@@ -23,10 +26,10 @@ const Footer = () => {
           </div>
           <div className="flex items-center gap-2">
             <Link
-              href="/rewards"
+              href={isRewards ? "/" : "/rewards"}
               className="text-indigo-300 hover:text-indigo-400 active:opacity-50"
             >
-              Rewards
+              {isRewards ? "Home" : "Rewards"}
             </Link>
           </div>
           <Button onClick={() => setOpen(true)}>
