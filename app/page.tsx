@@ -1,4 +1,8 @@
-import SearchForUser from "@/components/search/SearchForUser"
+import AuroraBackground from "@/components/landing/AuroraBackground"
+import ClickSpark from "@/components/ClickSpark"
+import HeroSection from "@/components/landing/HeroSection"
+import TokenShowcase from "@/components/landing/TokenShowcase"
+import FeaturesSection from "@/components/landing/FeaturesSection"
 
 export const generateMetadata = async () => {
   const ogImage = `https://lctips.xyz/thumbnail.png`
@@ -40,21 +44,23 @@ export const generateMetadata = async () => {
 
 const Home = async () => {
   return (
-    <div className="max-w-3xl mx-auto w-full space-y-6">
-      <div className="flex flex-col items-center justify-center space-y-2 w-full">
-        <div className="font-extrabold tracking-tight text-3xl sm:text-5xl">
-          LCTips
-        </div>
-        <div className="text-center text-zinc-300 text-sm sm:text-base max-w-md pt-6 space-y-3">
-          <div>Discover who's tipping who on Lens Chain.</div>
-          <div>
-            Search for any Lens user by handle to see their tip history: both
-            tips they've sent and received.
-          </div>
-        </div>
+    <div className="relative w-full">
+      <AuroraBackground />
+      <div className="z-10 absolute top-0 left-0 w-full h-full pointer-events-none">
+        <ClickSpark
+          sparkColor="#ffffff"
+          sparkSize={10}
+          sparkRadius={15}
+          sparkCount={8}
+          duration={400}
+          easing="ease-out"
+          extraScale={1}
+        />
       </div>
-      <div className="">
-        <SearchForUser hideTitle={true} />
+      <div className="relative z-[1]">
+        <HeroSection />
+        <TokenShowcase />
+        <FeaturesSection />
       </div>
     </div>
   )
