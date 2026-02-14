@@ -10,9 +10,30 @@ export const getTransfers = async (address: string, page: number) => {
 
   const theURL = `https://explorer-api.lens.xyz/address/${address}/transfers?fromDate=${fromDate.toISOString()}&toDate=${toDate}&limit=${limit}&page=${page}`
 
-  const response = await fetch(theURL)
-  const data = await response.json()
-  return data.items
+  const t0 = performance.now()
+  console.log(`🔍 [lens-explorer] Fetching transfers for ${address.slice(0, 10)}... page ${page}...`)
+
+  try {
+    const response = await fetch(theURL, { signal: AbortSignal.timeout(15_000) })
+
+    if (!response.ok) {
+      console.error(`🔍❌ [lens-explorer] HTTP ${response.status} for ${address.slice(0, 10)}... page ${page}`)
+      return []
+    }
+
+    const data = await response.json()
+    const elapsed = (performance.now() - t0).toFixed(0)
+    console.log(`🔍✅ [lens-explorer] Got ${data.items?.length ?? 0} transfers in ${elapsed}ms`)
+    return data.items
+  } catch (error: any) {
+    const elapsed = (performance.now() - t0).toFixed(0)
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      console.error(`🔍⏱️ [lens-explorer] TIMEOUT after ${elapsed}ms fetching page ${page} for ${address.slice(0, 10)}...`)
+    } else {
+      console.error(`🔍❌ [lens-explorer] Error fetching page ${page} for ${address.slice(0, 10)}... (${elapsed}ms):`, error)
+    }
+    return []
+  }
 }
 
 export const getOutcomeTransfers = async (address: string, page: number) => {
@@ -23,9 +44,19 @@ export const getOutcomeTransfers = async (address: string, page: number) => {
   const fromDate = new Date("2026-01-01T00:00:00.000Z")
 
   const theURL = `https://explorer-api.lens.xyz/address/${address}/transfers?fromDate=${fromDate.toISOString()}&toDate=${toDate}&limit=${limit}&page=${page}`
-  const response = await fetch(theURL)
-  const data = await response.json()
-  return data.items
+
+  try {
+    const response = await fetch(theURL, { signal: AbortSignal.timeout(15_000) })
+    if (!response.ok) {
+      console.error(`🔍❌ [lens-explorer] getOutcomeTransfers HTTP ${response.status}`)
+      return []
+    }
+    const data = await response.json()
+    return data.items
+  } catch (error: any) {
+    console.error(`🔍❌ [lens-explorer] getOutcomeTransfers error:`, error)
+    return []
+  }
 }
 
 export const getSenderFromTx = async (hash: string) => {

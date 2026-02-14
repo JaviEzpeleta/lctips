@@ -2,7 +2,6 @@ import { getLensProfileByHandle } from "@/lib/lens-api"
 import { getTransfers } from "@/lib/lens-explorer"
 import { DetailTransfer } from "@/lib/types"
 import { ethers } from "ethers"
-import { unstable_cache } from "next/cache"
 import { NextRequest, NextResponse } from "next/server"
 
 const provider = new ethers.JsonRpcProvider("https://rpc.lens.xyz")
@@ -18,7 +17,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
     promise,
     new Promise<null>((resolve) => {
       setTimeout(() => {
-        console.warn(`[detail-page] TIMEOUT: ${label} after ${ms}ms`)
+        console.warn(`⏱️ [detail-page] TIMEOUT: ${label} after ${ms}ms`)
         resolve(null)
       }, ms)
     }),
@@ -91,7 +90,7 @@ async function resolveActualCounterparty(
       return candidates.length > 0 ? candidates[0][0] : null
     }
   } catch (error) {
-    console.error(`[detail-page] Failed to resolve counterparty for tx ${txHash}:`, error)
+    console.error(`🔗❌ [detail-page] Failed to resolve counterparty for tx ${txHash}:`, error)
     return null
   }
 }
@@ -102,10 +101,14 @@ async function processTransferPage(
 ): Promise<{ transfers: DetailTransfer[]; hasMore: boolean }> {
   const t0 = performance.now()
 
-  console.log(`[detail-page] Fetching transfers page ${pageNum} for ${address.slice(0, 10)}...`)
-  const rawTransfers = await getTransfers(address, pageNum)
+  console.log(`📡 [detail-page] Fetching transfers page ${pageNum} for ${address.slice(0, 10)}...`)
+  const rawTransfers = await withTimeout(
+    getTransfers(address, pageNum),
+    15_000,
+    `getTransfers(page ${pageNum})`
+  )
   const t1 = performance.now()
-  console.log(`[detail-page] Got ${rawTransfers?.length ?? 0} raw transfers in ${(t1 - t0).toFixed(0)}ms`)
+  console.log(`📡 [detail-page] Got ${rawTransfers?.length ?? 0} raw transfers in ${(t1 - t0).toFixed(0)}ms`)
 
   if (!rawTransfers || rawTransfers.length === 0) {
     return { transfers: [], hasMore: false }
@@ -142,7 +145,7 @@ async function processTransferPage(
     return resolveCache.get(key)!
   }
 
-  console.log(`[detail-page] Resolving counterparties for ${validTransfers.length} transfers...`)
+  console.log(`🔗 [detail-page] Resolving counterparties for ${validTransfers.length} transfers...`)
   const t2 = performance.now()
 
   const incomePromises = incomeTransfers.map(async (transfer: any) => {
@@ -189,7 +192,7 @@ async function processTransferPage(
   ])
 
   const t3 = performance.now()
-  console.log(`[detail-page] Counterparties resolved in ${(t3 - t2).toFixed(0)}ms`)
+  console.log(`🔗✅ [detail-page] Counterparties resolved in ${(t3 - t2).toFixed(0)}ms`)
 
   // Dedup within page
   const deduped = [...incomeDetails, ...outcomeDetails].reduce((acc, t) => {
@@ -210,46 +213,56 @@ async function processTransferPage(
   )
 
   const totalMs = (performance.now() - t0).toFixed(0)
-  console.log(`[detail-page] Page ${pageNum} complete: ${transfers.length} transfers, hasMore=${rawTransfers.length === 100}, total ${totalMs}ms`)
+  console.log(`✅ [detail-page] Page ${pageNum} complete: ${transfers.length} transfers, hasMore=${rawTransfers?.length === 100}, total ${totalMs}ms`)
 
-  return { transfers, hasMore: rawTransfers.length === 100 }
+  return { transfers, hasMore: rawTransfers?.length === 100 }
 }
 
-function getCachedProcessTransferPage(address: string, pageNum: number) {
-  return unstable_cache(
-    () => processTransferPage(address, pageNum),
-    ["detail-transfers-page", address, String(pageNum)],
-    { revalidate: 3600 }
-  )()
-}
 
 export async function POST(req: NextRequest) {
-  const { handle, page } = await req.json()
+  let handle: string
+  let page: number
+  try {
+    const body = await req.json()
+    handle = body.handle
+    page = body.page
+  } catch {
+    return NextResponse.json({ error: "Invalid or empty request body" }, { status: 400 })
+  }
+
+  if (!handle || page == null) {
+    return NextResponse.json({ error: "Missing handle or page" }, { status: 400 })
+  }
+
   const requestStart = performance.now()
 
   try {
-    console.log(`[detail-page] Fetching profile for @${handle}...`)
+    console.log(`👤 [detail-page] Fetching profile for @${handle}...`)
     const profileStart = performance.now()
-    const profile = await getLensProfileByHandle(handle)
+    const profile = await withTimeout(
+      getLensProfileByHandle(handle),
+      10_000,
+      `getLensProfileByHandle(@${handle})`
+    )
     const profileMs = (performance.now() - profileStart).toFixed(0)
 
     if (!profile) {
-      console.log(`[detail-page] Profile @${handle} not found (${profileMs}ms)`)
+      console.log(`👤❌ [detail-page] Profile @${handle} not found or timed out (${profileMs}ms)`)
       return NextResponse.json(
         { error: "Profile not found" },
         { status: 404 }
       )
     }
 
-    console.log(`[detail-page] Profile resolved in ${profileMs}ms, address: ${profile.address}`)
+    console.log(`👤✅ [detail-page] Profile resolved in ${profileMs}ms, address: ${profile.address}`)
 
-    const { transfers, hasMore } = await getCachedProcessTransferPage(
+    const { transfers, hasMore } = await processTransferPage(
       profile.address,
       page
     )
 
     const totalMs = (performance.now() - requestStart).toFixed(0)
-    console.log(`[detail-page] Request complete for @${handle} page ${page} in ${totalMs}ms`)
+    console.log(`✅🎉 [detail-page] Request complete for @${handle} page ${page} in ${totalMs}ms`)
 
     return NextResponse.json({
       profile,
@@ -260,7 +273,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     const totalMs = (performance.now() - requestStart).toFixed(0)
     const errorMsg = error?.message || "Unknown error"
-    console.error(`[detail-page] Error processing @${handle} page ${page} after ${totalMs}ms:`, error)
+    console.error(`❌ [detail-page] Error processing @${handle} page ${page} after ${totalMs}ms:`, error)
     return NextResponse.json(
       { error: `Failed to process detail transfers: ${errorMsg}` },
       { status: 500 }

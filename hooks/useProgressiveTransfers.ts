@@ -19,7 +19,6 @@ export function useProgressiveTransfers(handle: string) {
 
   const dedupMapRef = useRef(new Map<string, DetailTransfer>())
   const abortRef = useRef<AbortController | null>(null)
-  const startedRef = useRef(false)
 
   const rebuildFromMap = useCallback(() => {
     const sorted = [...dedupMapRef.current.values()].sort(
@@ -42,7 +41,7 @@ export function useProgressiveTransfers(handle: string) {
     async (pageNum: number, signal: AbortSignal) => {
       setIsLoadingPage(true)
       const startTime = performance.now()
-      console.log(`[useProgressiveTransfers] Fetching page ${pageNum} for @${handle}...`)
+      console.log(`📡 [transfers] Fetching page ${pageNum} for @${handle}...`)
 
       try {
         // Combine the caller's abort signal with a 30s timeout
@@ -74,7 +73,7 @@ export function useProgressiveTransfers(handle: string) {
           const errorData = await res.json().catch(() => ({ error: "Unknown error" }))
           const errorMsg = errorData.error || `HTTP ${res.status}`
           toast.error(`Page ${pageNum} failed: ${errorMsg}`)
-          console.error(`[useProgressiveTransfers] Page ${pageNum} error: ${errorMsg}`)
+          console.error(`❌ [transfers] Page ${pageNum} error: ${errorMsg}`)
           setIsLoadingPage(false)
           return null
         }
@@ -88,7 +87,7 @@ export function useProgressiveTransfers(handle: string) {
         if (!data.transfers || data.transfers.length === 0) {
           const elapsed = (performance.now() - startTime).toFixed(0)
           const totalTransfers = dedupMapRef.current.size
-          console.log(`[useProgressiveTransfers] Page ${pageNum} empty in ${elapsed}ms — done. Total: ${totalTransfers} transfers`)
+          console.log(`🎉 [transfers] Page ${pageNum} empty in ${elapsed}ms — done. Total: ${totalTransfers} transfers`)
           toast.success(`All transfers loaded (${totalTransfers} total)`)
           setIsDone(true)
           setIsLoadingPage(false)
@@ -113,7 +112,7 @@ export function useProgressiveTransfers(handle: string) {
 
         const elapsed = (performance.now() - startTime).toFixed(0)
         console.log(
-          `[useProgressiveTransfers] Page ${pageNum}: ${data.transfers.length} transfers, hasMore=${data.hasMore}, ${elapsed}ms`
+          `✅ [transfers] Page ${pageNum}: ${data.transfers.length} transfers, hasMore=${data.hasMore}, ${elapsed}ms`
         )
 
         if (!data.hasMore) {
@@ -129,13 +128,13 @@ export function useProgressiveTransfers(handle: string) {
           // Distinguish timeout from user-initiated abort
           if (!signal.aborted) {
             toast.error(`Page ${pageNum} timed out after ${FETCH_TIMEOUT_MS / 1000}s`)
-            console.error(`[useProgressiveTransfers] Page ${pageNum} timed out after ${FETCH_TIMEOUT_MS}ms`)
+            console.error(`⏱️ [transfers] Page ${pageNum} timed out after ${FETCH_TIMEOUT_MS}ms`)
             setIsLoadingPage(false)
           }
           return null
         }
         toast.error(`Network error loading page ${pageNum}`)
-        console.error(`[useProgressiveTransfers] Network error on page ${pageNum}:`, error)
+        console.error(`❌ [transfers] Network error on page ${pageNum}:`, error)
         setIsLoadingPage(false)
         return null
       }
@@ -145,11 +144,22 @@ export function useProgressiveTransfers(handle: string) {
 
   // Auto-load burst
   useEffect(() => {
-    if (!handle || startedRef.current) return
-    startedRef.current = true
+    if (!handle) return
+
+    console.log(`🚀 [transfers] Starting initial burst for @${handle}...`)
 
     const controller = new AbortController()
     abortRef.current = controller
+
+    // Reset state for fresh load (handles React Strict Mode double-mount)
+    dedupMapRef.current.clear()
+    setTransfers([])
+    setDatesWithTips(new Set())
+    setCurrentPage(0)
+    setIsLoadingPage(false)
+    setIsDone(false)
+    setProfileNotFound(false)
+    setAutoLoadRemaining(PAGES_PER_BURST)
 
     const loadBurst = async () => {
       let nextPage = 1
@@ -165,11 +175,13 @@ export function useProgressiveTransfers(handle: string) {
         pagesLoaded++
       }
 
-      const burstElapsed = (performance.now() - burstStart).toFixed(0)
-      console.log(
-        `[useProgressiveTransfers] Initial burst complete: ${pagesLoaded} pages loaded in ${burstElapsed}ms, total transfers: ${dedupMapRef.current.size}`
-      )
-      setAutoLoadRemaining(0)
+      if (!controller.signal.aborted) {
+        const burstElapsed = (performance.now() - burstStart).toFixed(0)
+        console.log(
+          `🏁 [transfers] Initial burst complete: ${pagesLoaded} pages loaded in ${burstElapsed}ms, total transfers: ${dedupMapRef.current.size}`
+        )
+        setAutoLoadRemaining(0)
+      }
     }
 
     loadBurst()
@@ -202,7 +214,7 @@ export function useProgressiveTransfers(handle: string) {
 
       const burstElapsed = (performance.now() - burstStart).toFixed(0)
       console.log(
-        `[useProgressiveTransfers] Load-more burst complete: ${pagesLoaded} pages loaded in ${burstElapsed}ms, total transfers: ${dedupMapRef.current.size}`
+        `🏁 [transfers] Load-more burst complete: ${pagesLoaded} pages loaded in ${burstElapsed}ms, total transfers: ${dedupMapRef.current.size}`
       )
       setAutoLoadRemaining(0)
     }

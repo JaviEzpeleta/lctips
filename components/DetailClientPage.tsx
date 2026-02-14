@@ -58,10 +58,10 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
         const data = await res.json()
         if (data.profile) {
           setBasicProfileData(data.profile)
-          console.log("[DetailClientPage] Basic profile loaded:", data.profile)
+          console.log("👤✅ [detail] Basic profile loaded:", data.profile)
         }
       } catch (err) {
-        console.error("[DetailClientPage] Basic profile fetch failed:", err)
+        console.error("👤❌ [detail] Basic profile fetch failed:", err)
         toast.error("Couldn't load quick profile")
       }
     }
