@@ -324,3 +324,13 @@ in a {
   height: 100%;
   display: block;
 }
+
+/* Calendar tip indicator dot */
+.tip-calendar-dot {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: oklch(0.696 0.17 162.48);
+  margin-top: 2px;
+}
