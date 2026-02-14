@@ -66,7 +66,7 @@ const DetailTransferRow = ({
     <motion.div
       initial={{ opacity: 0, y: 15, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ delay: index * 0.015 }}
+      transition={{ delay: Math.min(index * 0.015, 0.6) }}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       className="group"

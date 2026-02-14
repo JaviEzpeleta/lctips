@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { DetailTransfer } from "@/lib/types"
 import DefaultLoadingMini from "./DefaultLoadingMini"
 import BlurryEntrance from "./BlurryEntrance"
 import DetailProfileHeader from "./detail/DetailProfileHeader"
@@ -9,6 +8,8 @@ import TipCalendar from "./detail/TipCalendar"
 import DetailTransferRow from "./detail/DetailTransferRow"
 import ProfileNotFound from "./ProfileNotFound"
 import { ArrowUpRight, ArrowDownLeft } from "lucide-react"
+import { useProgressiveTransfers } from "@/hooks/useProgressiveTransfers"
+import toast from "react-hot-toast"
 
 const TOKEN_FILTERS = ["All", "GHO", "BONSAI", "POINTLESS"] as const
 type TokenFilter = (typeof TOKEN_FILTERS)[number]
@@ -16,20 +17,33 @@ type TokenFilter = (typeof TOKEN_FILTERS)[number]
 const ITEMS_PER_PAGE = 50
 
 const DetailClientPage = ({ handle }: { handle: string }) => {
-  const [allTransfers, setAllTransfers] = useState<DetailTransfer[]>([])
-  const [datesWithTips, setDatesWithTips] = useState<string[]>([])
+  const {
+    transfers: allTransfers,
+    datesWithTips: datesWithTipsSet,
+    isLoadingPage,
+    isAutoLoading,
+    isDone,
+    currentPage,
+    loadMorePages,
+    profileData: progressiveProfileData,
+    profileNotFound: progressiveProfileNotFound,
+  } = useProgressiveTransfers(handle)
+
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [profileData, setProfileData] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [profileNotFound, setProfileNotFound] = useState(false)
+  const [basicProfileData, setBasicProfileData] = useState<any>(null)
   const [tokenFilter, setTokenFilter] = useState<TokenFilter>("All")
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE)
   const [visibleCountSent, setVisibleCountSent] = useState(ITEMS_PER_PAGE)
   const [visibleCountReceived, setVisibleCountReceived] = useState(ITEMS_PER_PAGE)
 
-  const loadedRef = useRef(false)
   const basicProfileRef = useRef(false)
+
+  // Use progressive profile data when available, fall back to basic profile
+  const profileData = progressiveProfileData || basicProfileData
+
+  const isInitialLoading = currentPage === 0 && isLoadingPage
+  const isStreaming = isLoadingPage || isAutoLoading
 
   // Fetch basic profile for fast header render
   useEffect(() => {
@@ -43,43 +57,15 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
         })
         const data = await res.json()
         if (data.profile) {
-          setProfileData(data.profile)
+          setBasicProfileData(data.profile)
+          console.log("[DetailClientPage] Basic profile loaded:", data.profile)
         }
-      } catch {
-        // will be set from detail-transfers response
+      } catch (err) {
+        console.error("[DetailClientPage] Basic profile fetch failed:", err)
+        toast.error("Couldn't load quick profile")
       }
     }
     fetchBasic()
-  }, [handle])
-
-  // Fetch all transfers
-  useEffect(() => {
-    if (!handle || loadedRef.current) return
-    loadedRef.current = true
-    const fetchTransfers = async () => {
-      try {
-        const res = await fetch("/api/detail-transfers", {
-          method: "POST",
-          body: JSON.stringify({ handle }),
-        })
-        const data = await res.json()
-
-        if (data.error === "Profile not found" || !data.profile) {
-          setProfileNotFound(true)
-          setIsLoading(false)
-          return
-        }
-
-        setProfileData(data.profile)
-        setAllTransfers(data.transfers || [])
-        setDatesWithTips(data.datesWithTips || [])
-        setIsLoading(false)
-      } catch (error) {
-        console.error("Error fetching detail transfers:", error)
-        setIsLoading(false)
-      }
-    }
-    fetchTransfers()
   }, [handle])
 
   // Reset visible counts when filters change
@@ -88,11 +74,6 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
     setVisibleCountSent(ITEMS_PER_PAGE)
     setVisibleCountReceived(ITEMS_PER_PAGE)
   }, [selectedDate, tokenFilter])
-
-  const datesWithTipsSet = useMemo(
-    () => new Set(datesWithTips),
-    [datesWithTips]
-  )
 
   const filteredTransfers = useMemo(() => {
     let result = allTransfers
@@ -140,17 +121,33 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
   const visibleReceived = receivedTransfers.slice(0, visibleCountReceived)
   const hasMoreReceived = visibleCountReceived < receivedTransfers.length
 
-  if (profileNotFound) {
+  if (progressiveProfileNotFound) {
     return <ProfileNotFound handle={handle} />
   }
 
-  if (isLoading && !profileData) {
+  if (isInitialLoading && !profileData) {
     return (
       <div className="pb-24">
         <DefaultLoadingMini />
       </div>
     )
   }
+
+  const streamingIndicator = isStreaming && (
+    <span className="text-indigo-400 ml-1 text-[11px] animate-pulse">
+      (loading…)
+    </span>
+  )
+
+  const loadMorePagesButton = !isDone && !isAutoLoading && (
+    <button
+      onClick={loadMorePages}
+      disabled={isLoadingPage}
+      className="w-full mt-4 py-2.5 text-sm text-indigo-300 hover:text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 ring-1 ring-indigo-500/20 rounded-lg transition-colors disabled:opacity-50"
+    >
+      {isLoadingPage ? "Loading…" : "Load more pages"}
+    </button>
+  )
 
   const tokenFilterTabs = (
     <div className="flex gap-1 mb-3 overflow-x-auto scrollbar-hide">
@@ -193,11 +190,12 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
             profileData={profileData}
             handle={handle}
             transferCount={allTransfers.length}
+            isStreaming={isStreaming}
           />
         )}
       </BlurryEntrance>
 
-      {isLoading ? (
+      {isInitialLoading ? (
         <DefaultLoadingMini />
       ) : (
         <>
@@ -227,20 +225,21 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
                   on {selectedDate}
                 </span>
               )}
+              {streamingIndicator}
             </div>
 
             {/* Transfer list */}
             <div className="space-y-0.5">
               {visibleTransfers.map((transfer, index) => (
                 <DetailTransferRow
-                  key={`${transfer.transactionHash}-${transfer.direction}-${index}`}
+                  key={`${transfer.transactionHash}-${transfer.direction}-${transfer.symbol}`}
                   transfer={transfer}
                   index={index}
                 />
               ))}
             </div>
 
-            {filteredTransfers.length === 0 && (
+            {filteredTransfers.length === 0 && !isStreaming && (
               <div className="text-center py-12 text-zinc-500 text-sm">
                 No transfers found
               </div>
@@ -256,11 +255,13 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
                 Load more ({filteredTransfers.length - visibleCount} remaining)
               </button>
             )}
+
+            {loadMorePagesButton}
           </div>
 
           {/* ── XL 3-Column Dashboard layout ── */}
           <div className="hidden xl:block">
-            {filteredTransfers.length === 0 ? (
+            {filteredTransfers.length === 0 && !isStreaming ? (
               <BlurryEntrance delay={0.05}>
                 <div className="grid grid-cols-[300px_1fr] gap-6 items-start">
                   <div>
@@ -302,6 +303,7 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
                         {filteredTransfers.length} transfer
                         {filteredTransfers.length !== 1 ? "s" : ""}
                         {selectedDate && <span> on {selectedDate}</span>}
+                        {streamingIndicator}
                       </div>
                     </div>
                   </div>
@@ -324,13 +326,13 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
                     <div className="space-y-0.5">
                       {visibleSent.map((transfer, index) => (
                         <DetailTransferRow
-                          key={`sent-${transfer.transactionHash}-${index}`}
+                          key={`sent-${transfer.transactionHash}-${transfer.direction}-${transfer.symbol}`}
                           transfer={transfer}
                           index={index}
                         />
                       ))}
                     </div>
-                    {sentTransfers.length === 0 && (
+                    {sentTransfers.length === 0 && !isStreaming && (
                       <div className="text-center py-8 text-zinc-600 text-sm">
                         No sent transfers
                       </div>
@@ -365,13 +367,13 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
                     <div className="space-y-0.5">
                       {visibleReceived.map((transfer, index) => (
                         <DetailTransferRow
-                          key={`recv-${transfer.transactionHash}-${index}`}
+                          key={`recv-${transfer.transactionHash}-${transfer.direction}-${transfer.symbol}`}
                           transfer={transfer}
                           index={index}
                         />
                       ))}
                     </div>
-                    {receivedTransfers.length === 0 && (
+                    {receivedTransfers.length === 0 && !isStreaming && (
                       <div className="text-center py-8 text-zinc-600 text-sm">
                         No received transfers
                       </div>
@@ -390,6 +392,9 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
                 </BlurryEntrance>
               </div>
             )}
+
+            {/* Load more pages button below XL columns */}
+            {loadMorePagesButton}
           </div>
         </>
       )}

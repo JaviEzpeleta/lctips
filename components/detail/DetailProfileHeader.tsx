@@ -7,12 +7,14 @@ interface DetailProfileHeaderProps {
   profileData: any
   handle: string
   transferCount: number
+  isStreaming?: boolean
 }
 
 const DetailProfileHeader = ({
   profileData,
   handle,
   transferCount,
+  isStreaming,
 }: DetailProfileHeaderProps) => {
   return (
     <div className="border-2 border-zinc-950 bg-black/30 rounded-xl p-3 mb-4">
@@ -48,6 +50,11 @@ const DetailProfileHeader = ({
               </Link>
               <span className="text-[11px] text-zinc-500">
                 {transferCount} transfers
+                {isStreaming && (
+                  <span className="text-indigo-400 ml-1 animate-pulse">
+                    loading…
+                  </span>
+                )}
               </span>
             </div>
           </div>
