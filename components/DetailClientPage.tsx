@@ -6,6 +6,7 @@ import BlurryEntrance from "./BlurryEntrance"
 import DetailProfileHeader from "./detail/DetailProfileHeader"
 import TipCalendar from "./detail/TipCalendar"
 import DetailTransferRow from "./detail/DetailTransferRow"
+import TotalsSummary from "./detail/TotalsSummary"
 import ProfileNotFound from "./ProfileNotFound"
 import { ArrowUpRight, ArrowDownLeft } from "lucide-react"
 import { useProgressiveTransfers } from "@/hooks/useProgressiveTransfers"
@@ -110,6 +111,35 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
     [filteredTransfers]
   )
 
+  const tokenTotals = useMemo(() => {
+    const acc: Record<string, { sent: number; received: number }> = {}
+    for (const t of filteredTransfers) {
+      // Merge WGHO + ETH into "GHO"
+      const key = t.symbol === "WGHO" || t.symbol === "ETH" ? "GHO" : t.symbol
+      if (!acc[key]) acc[key] = { sent: 0, received: 0 }
+      const amount = Number(t.amount)
+      if (t.direction === "outcome") acc[key].sent += amount
+      else acc[key].received += amount
+    }
+
+    const tokenConfig: Record<string, { displayName: string; icon: string; isDollar: boolean; order: number }> = {
+      GHO: { displayName: "GHO", icon: "/gho-icon.png", isDollar: true, order: 0 },
+      BONSAI: { displayName: "BONSAI", icon: "/img/bonsai-logo.webp", isDollar: false, order: 1 },
+      pointless: { displayName: "POINTLESS", icon: "/img/pointless-logo.webp", isDollar: false, order: 2 },
+    }
+
+    return Object.entries(acc)
+      .map(([key, vals]) => {
+        const config = tokenConfig[key]
+        if (!config) return null
+        return { ...config, ...vals }
+      })
+      .filter(Boolean)
+      .sort((a, b) => a!.order - b!.order) as Array<{
+        displayName: string; icon: string; sent: number; received: number; isDollar: boolean; order: number
+      }>
+  }, [filteredTransfers])
+
   // Mobile: mixed list pagination
   const visibleTransfers = filteredTransfers.slice(0, visibleCount)
   const hasMore = visibleCount < filteredTransfers.length
@@ -133,11 +163,15 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
     )
   }
 
-  const streamingIndicator = isStreaming && (
+  const streamingIndicator = isStreaming ? (
     <span className="text-indigo-400 ml-1 text-[11px] animate-pulse">
-      (loading…)
+      page {currentPage}…
     </span>
-  )
+  ) : isDone ? (
+    <span className="text-emerald-600 ml-1 text-[11px]">
+      &#10003; all loaded
+    </span>
+  ) : null
 
   const loadMorePagesButton = !isDone && !isAutoLoading && (
     <button
@@ -228,6 +262,8 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
               {streamingIndicator}
             </div>
 
+            <TotalsSummary tokenTotals={tokenTotals} isStreaming={isStreaming} />
+
             {/* Transfer list */}
             <div className="space-y-0.5">
               {visibleTransfers.map((transfer, index) => (
@@ -274,10 +310,11 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
                     />
                     <div className="mt-3">
                       {tokenFilterTabs}
-                      <div className="text-xs text-zinc-500 px-2">
+                      <div className="text-xs text-zinc-500 px-2 mb-2">
                         0 transfers
                         {selectedDate && <span> on {selectedDate}</span>}
                       </div>
+                      <TotalsSummary tokenTotals={tokenTotals} isStreaming={isStreaming} />
                     </div>
                   </div>
                   <div className="text-center py-12 text-zinc-500 text-sm">
@@ -299,12 +336,13 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
                     />
                     <div className="mt-3">
                       {tokenFilterTabs}
-                      <div className="text-xs text-zinc-500 px-2">
+                      <div className="text-xs text-zinc-500 px-2 mb-2">
                         {filteredTransfers.length} transfer
                         {filteredTransfers.length !== 1 ? "s" : ""}
                         {selectedDate && <span> on {selectedDate}</span>}
                         {streamingIndicator}
                       </div>
+                      <TotalsSummary tokenTotals={tokenTotals} isStreaming={isStreaming} />
                     </div>
                   </div>
                 </BlurryEntrance>
