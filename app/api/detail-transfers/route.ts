@@ -192,11 +192,20 @@ export async function POST(req: NextRequest) {
       Promise.all(outcomePromises),
     ])
 
-    // Combine and sort by timestamp (newest first)
-    const allTransfers = [
-      ...incomeDetails,
-      ...outcomeDetails,
-    ].sort(
+    // Deduplicate: group by txHash + direction + symbol, sum amounts
+    const deduped = [...incomeDetails, ...outcomeDetails].reduce((acc, t) => {
+      const key = `${t.transactionHash}:${t.direction}:${t.symbol}`
+      if (!acc.has(key)) {
+        acc.set(key, { ...t })
+      } else {
+        const existing = acc.get(key)!
+        const sum = parseFloat(existing.amount) + parseFloat(t.amount)
+        existing.amount = sum.toString()
+      }
+      return acc
+    }, new Map<string, DetailTransfer>())
+
+    const allTransfers = [...deduped.values()].sort(
       (a, b) =>
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     )
