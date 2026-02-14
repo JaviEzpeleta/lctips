@@ -258,38 +258,57 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
             )}
           </div>
 
-          {/* ── XL Dashboard layout ── */}
+          {/* ── XL 3-Column Dashboard layout ── */}
           <div className="hidden xl:block">
-            {/* Calendar + Filters row */}
-            <BlurryEntrance delay={0.05}>
-              <div className="grid grid-cols-[1fr_1fr] gap-6 items-start">
-                <TipCalendar
-                  currentMonth={currentMonth}
-                  setCurrentMonth={setCurrentMonth}
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                  datesWithTips={datesWithTipsSet}
-                />
-                <div className="pt-1">
-                  {tokenFilterTabs}
-                  <div className="text-xs text-zinc-500 px-2">
-                    {filteredTransfers.length} transfer
-                    {filteredTransfers.length !== 1 ? "s" : ""}
-                    {selectedDate && <span> on {selectedDate}</span>}
+            {filteredTransfers.length === 0 ? (
+              <BlurryEntrance delay={0.05}>
+                <div className="grid grid-cols-[300px_1fr] gap-6 items-start">
+                  <div>
+                    <TipCalendar
+                      currentMonth={currentMonth}
+                      setCurrentMonth={setCurrentMonth}
+                      selectedDate={selectedDate}
+                      setSelectedDate={setSelectedDate}
+                      datesWithTips={datesWithTipsSet}
+                    />
+                    <div className="mt-3">
+                      {tokenFilterTabs}
+                      <div className="text-xs text-zinc-500 px-2">
+                        0 transfers
+                        {selectedDate && <span> on {selectedDate}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-center py-12 text-zinc-500 text-sm">
+                    No transfers found
                   </div>
                 </div>
-              </div>
-            </BlurryEntrance>
+              </BlurryEntrance>
+            ) : (
+              <div className="grid grid-cols-[300px_1fr_1fr] gap-6 items-start">
+                {/* Left column — Calendar sidebar */}
+                <BlurryEntrance delay={0.05}>
+                  <div className="sticky top-4">
+                    <TipCalendar
+                      currentMonth={currentMonth}
+                      setCurrentMonth={setCurrentMonth}
+                      selectedDate={selectedDate}
+                      setSelectedDate={setSelectedDate}
+                      datesWithTips={datesWithTipsSet}
+                    />
+                    <div className="mt-3">
+                      {tokenFilterTabs}
+                      <div className="text-xs text-zinc-500 px-2">
+                        {filteredTransfers.length} transfer
+                        {filteredTransfers.length !== 1 ? "s" : ""}
+                        {selectedDate && <span> on {selectedDate}</span>}
+                      </div>
+                    </div>
+                  </div>
+                </BlurryEntrance>
 
-            {/* Two-column transfer lists */}
-            <BlurryEntrance delay={0.1}>
-              {filteredTransfers.length === 0 ? (
-                <div className="text-center py-12 text-zinc-500 text-sm">
-                  No transfers found
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-6 mt-4">
-                  {/* Sent column */}
+                {/* Middle column — Sent */}
+                <BlurryEntrance delay={0.1}>
                   <div>
                     <div className="flex items-center gap-2 mb-3 px-2">
                       <div className="w-6 h-6 rounded-full bg-orange-500/15 flex items-center justify-center">
@@ -327,8 +346,10 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
                       </button>
                     )}
                   </div>
+                </BlurryEntrance>
 
-                  {/* Received column */}
+                {/* Right column — Received */}
+                <BlurryEntrance delay={0.15}>
                   <div>
                     <div className="flex items-center gap-2 mb-3 px-2">
                       <div className="w-6 h-6 rounded-full bg-emerald-500/15 flex items-center justify-center">
@@ -366,9 +387,9 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
                       </button>
                     )}
                   </div>
-                </div>
-              )}
-            </BlurryEntrance>
+                </BlurryEntrance>
+              </div>
+            )}
           </div>
         </>
       )}
