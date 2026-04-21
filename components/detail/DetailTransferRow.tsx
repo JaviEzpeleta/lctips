@@ -1,7 +1,7 @@
 "use client"
 
 import { DetailTransfer } from "@/lib/types"
-import { formatLargeNumber } from "@/lib/utils"
+import { formatLargeNumber, formatRelativeTime } from "@/lib/utils"
 import { motion } from "framer-motion"
 import { ArrowDownLeft, ArrowUpRight, ExternalLink } from "lucide-react"
 import Link from "next/link"
@@ -23,7 +23,8 @@ const DetailTransferRow = ({
   const amountNum = Number(transfer.amount)
   const formattedAmount = formatLargeNumber(amountNum)
   const timestamp = new Date(transfer.timestamp)
-  const formattedTime = format(timestamp, "MMM d 'at' HH:mm")
+  const formattedTime = formatRelativeTime(timestamp)
+  const fullTimestamp = format(timestamp, "MMM d, yyyy 'at' HH:mm")
 
   const getTokenIcon = (symbol: string) => {
     switch (symbol) {
@@ -91,7 +92,9 @@ const DetailTransferRow = ({
               </span>
             )}
           </div>
-          <div className="text-[11px] text-zinc-500">{formattedTime}</div>
+          <div className="text-[11px] text-zinc-500" title={fullTimestamp}>
+            {formattedTime}
+          </div>
         </div>
 
         {/* Amount */}
