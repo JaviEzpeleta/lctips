@@ -6,8 +6,8 @@ import { motion } from "framer-motion"
 import { ArrowDownLeft, ArrowUpRight, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
-import { useEffect, useState } from "react"
-import axios from "axios"
+import { useState } from "react"
+import { useProfileByAddress } from "@/hooks/useProfileByAddress"
 
 const DetailTransferRow = ({
   transfer,
@@ -16,30 +16,8 @@ const DetailTransferRow = ({
   transfer: DetailTransfer
   index: number
 }) => {
-  const [profileData, setProfileData] = useState<any>(null)
+  const profileData = useProfileByAddress(transfer.counterpartyAddress)
   const [isHovering, setIsHovering] = useState(false)
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const response = await axios.post("/api/profile-data-by-address", {
-          address: transfer.counterpartyAddress,
-        })
-        if (
-          response.data.profile &&
-          response.data.profile.username &&
-          response.data.profile.metadata
-        ) {
-          setProfileData(response.data.profile)
-        }
-      } catch (error) {
-        // silently fail - will show address instead
-      }
-    }
-    if (transfer.counterpartyAddress) {
-      fetchProfile()
-    }
-  }, [transfer.counterpartyAddress])
 
   const isIncome = transfer.direction === "income"
   const amountNum = Number(transfer.amount)

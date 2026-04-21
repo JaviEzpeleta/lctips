@@ -7,6 +7,7 @@ import DetailProfileHeader from "./detail/DetailProfileHeader"
 import TipCalendar from "./detail/TipCalendar"
 import DetailTransferRow from "./detail/DetailTransferRow"
 import TotalsSummary from "./detail/TotalsSummary"
+import TopCounterparties from "./detail/TopCounterparties"
 import ProfileNotFound from "./ProfileNotFound"
 import { ArrowUpRight, ArrowDownLeft } from "lucide-react"
 import { useProgressiveTransfers } from "@/hooks/useProgressiveTransfers"
@@ -264,6 +265,17 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
 
             <TotalsSummary tokenTotals={tokenTotals} isStreaming={isStreaming} />
 
+            <TopCounterparties
+              transfers={allTransfers}
+              direction="received"
+              isStreaming={isStreaming}
+            />
+            <TopCounterparties
+              transfers={allTransfers}
+              direction="sent"
+              isStreaming={isStreaming}
+            />
+
             {/* Transfer list */}
             <div className="space-y-0.5">
               {visibleTransfers.map((transfer, index) => (
@@ -361,6 +373,11 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
                         {sentTransfers.length}
                       </span>
                     </div>
+                    <TopCounterparties
+                      transfers={allTransfers}
+                      direction="sent"
+                      isStreaming={isStreaming}
+                    />
                     <div className="space-y-0.5">
                       {visibleSent.map((transfer, index) => (
                         <DetailTransferRow
@@ -402,6 +419,11 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
                         {receivedTransfers.length}
                       </span>
                     </div>
+                    <TopCounterparties
+                      transfers={allTransfers}
+                      direction="received"
+                      isStreaming={isStreaming}
+                    />
                     <div className="space-y-0.5">
                       {visibleReceived.map((transfer, index) => (
                         <DetailTransferRow
