@@ -81,7 +81,7 @@ const DetailTransferRow = ({
                     }}
                   />
                   <span className="text-sm font-semibold truncate hover:text-yellow-300 transition-colors">
-                    {profileData.metadata.name}
+                    {profileData.username.localName}
                   </span>
                 </Link>
               </>
