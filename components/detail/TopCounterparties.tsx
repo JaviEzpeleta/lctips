@@ -2,8 +2,8 @@
 
 import { memo, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import NumberFlow from "@number-flow/react"
 import { DetailTransfer } from "@/lib/types"
-import { formatLargeNumber } from "@/lib/utils"
 import {
   CachedProfile,
   getCachedProfile,
@@ -58,7 +58,7 @@ const TopCounterpartyRow = memo(function TopCounterpartyRow({
         <span className="text-xs font-medium truncate flex-1 min-w-0">
           {name}
           <span className="ml-1 text-[10px] text-zinc-500 tabular-nums font-normal">
-            ({count})
+            (<NumberFlow value={count} />)
           </span>
         </span>
         <span
@@ -66,7 +66,22 @@ const TopCounterpartyRow = memo(function TopCounterpartyRow({
             isSent ? "text-orange-300" : "text-emerald-300"
           }`}
         >
-          {isSent ? "-" : "+"}${formatLargeNumber(total)}
+          <NumberFlow
+            value={total}
+            prefix={isSent ? "-$" : "+$"}
+            format={
+              total >= 10000
+                ? {
+                    notation: "compact",
+                    compactDisplay: "short",
+                    maximumFractionDigits: 1,
+                  }
+                : {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }
+            }
+          />
         </span>
       </div>
     </Link>
