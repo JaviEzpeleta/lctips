@@ -232,6 +232,7 @@ const DetailClientPage = ({
             handle={handle}
             transferCount={allTransfers.length}
             isStreaming={isStreaming}
+            transfers={allTransfers}
           />
         )}
       </BlurryEntrance>

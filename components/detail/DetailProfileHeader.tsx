@@ -2,12 +2,15 @@
 
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
+import HeaderSparkline from "./HeaderSparkline"
+import type { DetailTransfer } from "@/lib/types"
 
 interface DetailProfileHeaderProps {
   profileData: any
   handle: string
   transferCount: number
   isStreaming?: boolean
+  transfers: DetailTransfer[]
 }
 
 const DetailProfileHeader = ({
@@ -15,6 +18,7 @@ const DetailProfileHeader = ({
   handle,
   transferCount,
   isStreaming,
+  transfers,
 }: DetailProfileHeaderProps) => {
   return (
     <div className="border-2 border-zinc-950 bg-black/30 rounded-xl p-3 mb-4">
@@ -59,6 +63,13 @@ const DetailProfileHeader = ({
             </div>
           </div>
         </div>
+
+        {transfers.length > 0 && (
+          <div className="hidden sm:flex items-center gap-5 pr-2">
+            <HeaderSparkline transfers={transfers} direction="sent" />
+            <HeaderSparkline transfers={transfers} direction="received" />
+          </div>
+        )}
       </div>
     </div>
   )
