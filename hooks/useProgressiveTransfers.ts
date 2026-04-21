@@ -134,42 +134,45 @@ export function useProgressiveTransfers(handle: string) {
 
   const runBurst = useCallback(
     async (firstPage: number, controller: AbortController) => {
-      const pages = Array.from(
-        { length: PAGES_PER_BURST },
-        (_, i) => firstPage + i
-      )
       setIsLoadingPage(true)
       const burstStart = performance.now()
 
-      // Fire all pages in parallel with a shared signal.
-      const results = await Promise.all(
-        pages.map((p) => fetchPageRaw(p, controller.signal))
-      )
-
-      if (controller.signal.aborted) return
-
       let notFound = false
-      let lastGoodPage = 0
       let anyDone = false
-      let anyOk = false
+      let lastGoodPage = 0
 
-      for (const r of results) {
+      // Pages run serially to avoid saturating the downstream RPC
+      // (getTransactionReceipt). See app/api/detail-transfers-page/route.ts
+      // for the RPC semaphore that backs this up server-side.
+      for (let i = 0; i < PAGES_PER_BURST; i++) {
+        if (controller.signal.aborted) return
+        const pageNum = firstPage + i
+        const r = await fetchPageRaw(pageNum, controller.signal)
+        if (controller.signal.aborted || r.kind === "aborted") return
+
         if (r.kind === "notFound") {
           notFound = true
           break
         }
-        if (r.kind === "ok") {
-          anyOk = true
-          if (r.profile) setProfileData(r.profile)
-          mergeTransfers(r.transfers)
-          if (r.page > lastGoodPage) lastGoodPage = r.page
-          if (!r.hasMore) anyDone = true
-        } else if (r.kind === "empty") {
-          if (r.profile) setProfileData(r.profile)
-          anyDone = true
-        } else if (r.kind === "error") {
+        if (r.kind === "error") {
           toast.error(`Page ${r.page} failed: ${r.message}`)
           console.error(`❌ [transfers] Page ${r.page}: ${r.message}`)
+          break
+        }
+        if (r.kind === "empty") {
+          if (r.profile) setProfileData(r.profile)
+          anyDone = true
+          break
+        }
+        // r.kind === "ok"
+        if (r.profile) setProfileData(r.profile)
+        mergeTransfers(r.transfers)
+        lastGoodPage = r.page
+        rebuildFromMap()
+        setCurrentPage(r.page)
+        if (!r.hasMore) {
+          anyDone = true
+          break
         }
       }
 
@@ -182,8 +185,6 @@ export function useProgressiveTransfers(handle: string) {
         return
       }
 
-      if (anyOk) rebuildFromMap()
-      if (lastGoodPage > 0) setCurrentPage(lastGoodPage)
       setIsLoadingPage(false)
 
       if (anyDone) {
@@ -195,7 +196,7 @@ export function useProgressiveTransfers(handle: string) {
         setIsDone(true)
       } else {
         console.log(
-          `🏁 [transfers] Burst complete in ${(performance.now() - burstStart).toFixed(0)}ms, total ${dedupMapRef.current.size}`
+          `🏁 [transfers] Burst complete through page ${lastGoodPage} in ${(performance.now() - burstStart).toFixed(0)}ms, total ${dedupMapRef.current.size}`
         )
       }
 

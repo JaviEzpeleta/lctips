@@ -11,7 +11,47 @@ const transferIface = new ethers.Interface([
   "event Transfer(address indexed from, address indexed to, uint256 value)",
 ])
 
-const RPC_TIMEOUT_MS = 15_000
+const RPC_TIMEOUT_MS = 20_000
+
+// Cap concurrent RPC calls across ALL in-flight requests hitting this
+// function instance. Previously a single page fired ~100 concurrent
+// getTransactionReceipt calls in Promise.all, which saturated the Lens RPC
+// and produced timeouts. On Fluid Compute / warm instances this semaphore
+// throttles across concurrent users too.
+const RPC_CONCURRENCY = 4
+
+let rpcActive = 0
+const rpcQueue: Array<() => void> = []
+
+function acquireRpc(): Promise<void> {
+  if (rpcActive < RPC_CONCURRENCY) {
+    rpcActive++
+    return Promise.resolve()
+  }
+  return new Promise<void>((resolve) => {
+    rpcQueue.push(() => {
+      rpcActive++
+      resolve()
+    })
+  })
+}
+
+function releaseRpc() {
+  rpcActive--
+  const next = rpcQueue.shift()
+  if (next) next()
+}
+
+async function limitedGetTransactionReceipt(
+  txHash: string
+): Promise<ethers.TransactionReceipt | null> {
+  await acquireRpc()
+  try {
+    return await provider.getTransactionReceipt(txHash)
+  } finally {
+    releaseRpc()
+  }
+}
 
 // Tx receipts are immutable on a finalized chain, so resolved counterparties
 // for a given (txHash, direction, profileAddress) tuple never change. Cache
@@ -49,7 +89,7 @@ async function resolveActualCounterparty(
 
   try {
     const receipt = await withTimeout(
-      provider.getTransactionReceipt(txHash),
+      limitedGetTransactionReceipt(txHash),
       RPC_TIMEOUT_MS,
       `getTransactionReceipt(${txHash.slice(0, 10)}...)`
     )
