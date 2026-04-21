@@ -63,16 +63,27 @@ const counterpartyCache = new LRUCache<string, { v: string | null }>({
   ttl: 7 * 24 * 60 * 60 * 1000, // 7 days
 })
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T | null> {
-  return Promise.race([
-    promise,
-    new Promise<null>((resolve) => {
-      setTimeout(() => {
-        console.warn(`⏱️ [detail-page] TIMEOUT: ${label} after ${ms}ms`)
-        resolve(null)
-      }, ms)
-    }),
-  ])
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string
+): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const timeoutPromise = new Promise<null>((resolve) => {
+    timer = setTimeout(() => {
+      console.warn(`⏱️ [detail-page] TIMEOUT: ${label} after ${ms}ms`)
+      timer = null
+      resolve(null)
+    }, ms)
+  })
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    // Clear the timer if the underlying promise won the race, so we don't
+    // emit a phantom TIMEOUT log 15s after a successful call.
+    if (timer !== null) {
+      clearTimeout(timer)
+      timer = null
+    }
+  })
 }
 
 async function resolveActualCounterparty(
