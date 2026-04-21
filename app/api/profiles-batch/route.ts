@@ -1,22 +1,5 @@
-import { getLensProfileByAddress } from "@/lib/lens-api"
+import { getCachedLensProfileByAddress } from "@/lib/lensProfileCache"
 import { NextResponse } from "next/server"
-import { unstable_cache } from "next/cache"
-
-const cacheMap = new Map<string, () => Promise<any>>()
-
-const getCachedLensProfileByAddress = (address: string) => {
-  if (!cacheMap.has(address)) {
-    cacheMap.set(
-      address,
-      unstable_cache(
-        () => getLensProfileByAddress(address),
-        ["lens-profile-by-address", address],
-        { revalidate: 3600 }
-      )
-    )
-  }
-  return cacheMap.get(address)!()
-}
 
 const MAX_BATCH = 64
 

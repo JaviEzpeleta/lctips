@@ -1,11 +1,11 @@
-import { getLensProfileByHandle } from "@/lib/lens-api"
+import { getCachedLensProfileByHandle } from "@/lib/lensProfileCache"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(req: NextRequest) {
   const { handle } = await req.json()
 
   try {
-    const profile = await getLensProfileByHandle(handle)
+    const profile = await getCachedLensProfileByHandle(handle)
 
     if (!profile) {
       return NextResponse.json(
