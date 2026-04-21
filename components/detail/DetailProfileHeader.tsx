@@ -11,6 +11,7 @@ interface DetailProfileHeaderProps {
   transferCount: number
   isStreaming?: boolean
   transfers: DetailTransfer[]
+  onSparklineClick?: (date: Date) => void
 }
 
 const DetailProfileHeader = ({
@@ -19,6 +20,7 @@ const DetailProfileHeader = ({
   transferCount,
   isStreaming,
   transfers,
+  onSparklineClick,
 }: DetailProfileHeaderProps) => {
   return (
     <div className="border-2 border-zinc-950 bg-black/30 rounded-xl p-3 mb-4">
@@ -66,8 +68,16 @@ const DetailProfileHeader = ({
 
         {transfers.length > 0 && (
           <div className="hidden sm:flex items-center gap-5 pr-2">
-            <HeaderSparkline transfers={transfers} direction="sent" />
-            <HeaderSparkline transfers={transfers} direction="received" />
+            <HeaderSparkline
+              transfers={transfers}
+              direction="sent"
+              onBucketClick={onSparklineClick}
+            />
+            <HeaderSparkline
+              transfers={transfers}
+              direction="received"
+              onBucketClick={onSparklineClick}
+            />
           </div>
         )}
       </div>
