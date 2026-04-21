@@ -2,6 +2,7 @@ import { getLensProfileByHandle } from "@/lib/lens-api"
 import { getTransfers } from "@/lib/lens-explorer"
 import { DetailTransfer } from "@/lib/types"
 import { ethers } from "ethers"
+import { LRUCache } from "lru-cache"
 import { NextRequest, NextResponse } from "next/server"
 
 const provider = new ethers.JsonRpcProvider("https://rpc.lens.xyz")
@@ -11,6 +12,16 @@ const transferIface = new ethers.Interface([
 ])
 
 const RPC_TIMEOUT_MS = 15_000
+
+// Tx receipts are immutable on a finalized chain, so resolved counterparties
+// for a given (txHash, direction, profileAddress) tuple never change. Cache
+// across requests — on Fluid Compute this is shared between concurrent users
+// hitting the same warm function instance.
+// LRU generic requires a non-null value type, so we box the null case.
+const counterpartyCache = new LRUCache<string, { v: string | null }>({
+  max: 10_000,
+  ttl: 7 * 24 * 60 * 60 * 1000, // 7 days
+})
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T | null> {
   return Promise.race([
@@ -29,14 +40,25 @@ async function resolveActualCounterparty(
   profileAddress: string,
   direction: "income" | "outcome"
 ): Promise<string | null> {
+  const cacheKey = `${txHash}:${direction}:${profileAddress.toLowerCase()}`
+  const cachedEntry = counterpartyCache.get(cacheKey)
+  if (cachedEntry !== undefined) return cachedEntry.v
+
+  let result: string | null = null
+  let cacheable = false
+
   try {
     const receipt = await withTimeout(
       provider.getTransactionReceipt(txHash),
       RPC_TIMEOUT_MS,
       `getTransactionReceipt(${txHash.slice(0, 10)}...)`
     )
-    if (!receipt) return null
+    if (!receipt) {
+      // Don't cache timeouts/missing receipts — they may succeed on retry.
+      return null
+    }
 
+    cacheable = true
     const profileAddr = profileAddress.toLowerCase()
 
     const fromAddrs = new Set<string>()
@@ -78,7 +100,7 @@ async function resolveActualCounterparty(
         )
         .sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0))
 
-      return candidates.length > 0 ? candidates[0][0] : null
+      result = candidates.length > 0 ? candidates[0][0] : null
     } else {
       const candidates = [...amountsByAddr.entries()]
         .filter(
@@ -87,12 +109,15 @@ async function resolveActualCounterparty(
         )
         .sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0))
 
-      return candidates.length > 0 ? candidates[0][0] : null
+      result = candidates.length > 0 ? candidates[0][0] : null
     }
   } catch (error) {
     console.error(`🔗❌ [detail-page] Failed to resolve counterparty for tx ${txHash}:`, error)
     return null
   }
+
+  if (cacheable) counterpartyCache.set(cacheKey, { v: result })
+  return result
 }
 
 async function processTransferPage(
