@@ -26,6 +26,7 @@ const TopCounterpartyRow = memo(function TopCounterpartyRow({
   count,
   direction,
   rank,
+  ratio,
 }: {
   profile: NonNullable<CachedProfile>
   handle: string
@@ -33,57 +34,71 @@ const TopCounterpartyRow = memo(function TopCounterpartyRow({
   count: number
   direction: Direction
   rank: number
+  ratio: number
 }) {
   const isSent = direction === "sent"
   const name = profile.metadata.name || handle
   const picture = profile.metadata.picture
+  const barWidth = `${Math.max(ratio * 100, 2)}%`
 
   return (
     <Link href={`/u/${handle}`}>
-      <div className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-zinc-900/50 transition-colors">
-        <span className="text-[10px] text-zinc-600 w-4 tabular-nums flex-shrink-0">
-          <NumberFlow value={rank} />
-        </span>
-        {picture ? (
-          <div
-            className="w-5 h-5 rounded-full flex-shrink-0"
-            style={{
-              backgroundImage: `url(${picture})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          />
-        ) : (
-          <div className="w-5 h-5 rounded-full bg-zinc-800 flex-shrink-0" />
-        )}
-        <span className="text-xs font-medium truncate flex-1 min-w-0">
-          {name}
-          <span className="ml-1 text-[10px] text-zinc-500 tabular-nums font-normal">
-            (<NumberFlow value={count} />)
-          </span>
-        </span>
-        <span
-          className={`text-xs font-bold tabular-nums flex-shrink-0 ${
-            isSent ? "text-orange-300" : "text-emerald-300"
+      <div className="relative rounded-md overflow-hidden hover:bg-zinc-900/50 transition-colors">
+        <motion.div
+          className={`absolute inset-y-0 left-0 pointer-events-none ${
+            isSent
+              ? "bg-gradient-to-r from-orange-500/25 to-orange-500/5"
+              : "bg-gradient-to-r from-emerald-500/25 to-emerald-500/5"
           }`}
-        >
-          <NumberFlow
-            value={total}
-            prefix={isSent ? "-$" : "+$"}
-            format={
-              total >= 10000
-                ? {
-                    notation: "compact",
-                    compactDisplay: "short",
-                    maximumFractionDigits: 1,
-                  }
-                : {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }
-            }
-          />
-        </span>
+          initial={false}
+          animate={{ width: barWidth }}
+          transition={{ type: "spring", stiffness: 180, damping: 28, mass: 0.8 }}
+        />
+        <div className="relative flex items-center gap-2 py-1.5 px-2">
+          <span className="text-[10px] text-zinc-600 w-4 tabular-nums flex-shrink-0">
+            <NumberFlow value={rank} />
+          </span>
+          {picture ? (
+            <div
+              className="w-5 h-5 rounded-full flex-shrink-0"
+              style={{
+                backgroundImage: `url(${picture})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
+            />
+          ) : (
+            <div className="w-5 h-5 rounded-full bg-zinc-800 flex-shrink-0" />
+          )}
+          <span className="text-xs font-medium truncate flex-1 min-w-0">
+            {name}
+            <span className="ml-1 text-[10px] text-zinc-500 tabular-nums font-normal">
+              (<NumberFlow value={count} />)
+            </span>
+          </span>
+          <span
+            className={`text-xs font-bold tabular-nums flex-shrink-0 ${
+              isSent ? "text-orange-300" : "text-emerald-300"
+            }`}
+          >
+            <NumberFlow
+              value={total}
+              prefix={isSent ? "-$" : "+$"}
+              format={
+                total >= 10000
+                  ? {
+                      notation: "compact",
+                      compactDisplay: "short",
+                      maximumFractionDigits: 1,
+                    }
+                  : {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    }
+              }
+            />
+          </span>
+        </div>
       </div>
     </Link>
   )
@@ -154,6 +169,7 @@ const TopCounterparties = ({
 
   if (top.length === 0) return null
 
+  const maxTotal = top[0]?.total ?? 0
   const accent = direction === "sent" ? "text-orange-300/80" : "text-emerald-300/80"
 
   return (
@@ -191,6 +207,7 @@ const TopCounterparties = ({
                 count={entry.count}
                 direction={direction}
                 rank={i + 1}
+                ratio={maxTotal > 0 ? entry.total / maxTotal : 0}
               />
             </motion.div>
           ))}
