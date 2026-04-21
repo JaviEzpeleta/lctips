@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { DetailTransfer } from "@/lib/types"
 import { formatLargeNumber } from "@/lib/utils"
@@ -18,7 +18,7 @@ const TOP_N = 5
 const isGhoTransfer = (t: DetailTransfer) =>
   t.symbol === "WGHO" || t.symbol === "ETH"
 
-const TopCounterpartyRow = ({
+const TopCounterpartyRow = memo(function TopCounterpartyRow({
   profile,
   handle,
   total,
@@ -30,7 +30,7 @@ const TopCounterpartyRow = ({
   total: number
   direction: Direction
   rank: number
-}) => {
+}) {
   const isSent = direction === "sent"
   const name = profile.metadata.name || handle
   const picture = profile.metadata.picture
@@ -66,7 +66,7 @@ const TopCounterpartyRow = ({
       </div>
     </Link>
   )
-}
+})
 
 const TopCounterparties = ({
   transfers,
@@ -156,4 +156,4 @@ const TopCounterparties = ({
   )
 }
 
-export default TopCounterparties
+export default memo(TopCounterparties)

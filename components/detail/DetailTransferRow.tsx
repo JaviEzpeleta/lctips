@@ -6,7 +6,7 @@ import { motion } from "framer-motion"
 import { ArrowDownLeft, ArrowUpRight, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
-import { useState } from "react"
+import { memo, useState } from "react"
 import { useProfileByAddress } from "@/hooks/useProfileByAddress"
 
 const DetailTransferRow = ({
@@ -129,4 +129,4 @@ const DetailTransferRow = ({
   )
 }
 
-export default DetailTransferRow
+export default memo(DetailTransferRow)
