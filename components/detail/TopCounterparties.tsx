@@ -14,7 +14,7 @@ import {
 
 type Direction = "sent" | "received"
 
-const TOP_N = 5
+const TOP_N = 12
 
 const isGhoTransfer = (t: DetailTransfer) =>
   t.symbol === "WGHO" || t.symbol === "ETH"
