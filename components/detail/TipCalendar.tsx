@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import {
   startOfMonth,
   endOfMonth,
@@ -12,7 +13,8 @@ import {
   addMonths,
   subMonths,
 } from "date-fns"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { AnimatePresence, motion } from "framer-motion"
+import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react"
 
 interface TipCalendarProps {
   currentMonth: Date
@@ -20,6 +22,7 @@ interface TipCalendarProps {
   selectedDate: string | null
   setSelectedDate: (date: string | null) => void
   datesWithTips: Set<string>
+  showPrevMonthByDefault?: boolean
 }
 
 const weekDays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
@@ -109,8 +112,10 @@ const TipCalendar = ({
   selectedDate,
   setSelectedDate,
   datesWithTips,
+  showPrevMonthByDefault = true,
 }: TipCalendarProps) => {
   const prevMonth = subMonths(currentMonth, 1)
+  const [showPrevMonth, setShowPrevMonth] = useState(showPrevMonthByDefault)
 
   return (
     <div className="border-2 border-zinc-950 bg-black/30 rounded-xl p-3 mb-4">
@@ -119,38 +124,53 @@ const TipCalendar = ({
         <button
           onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
           className="p-1 hover:bg-zinc-800 rounded-md transition-colors active:opacity-50"
+          aria-label="Previous month"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
         <div className="text-sm font-semibold">
-          {format(prevMonth, "MMM")} – {format(currentMonth, "MMM yyyy")}
+          {showPrevMonth
+            ? `${format(prevMonth, "MMM")} – ${format(currentMonth, "MMM yyyy")}`
+            : format(currentMonth, "MMMM yyyy")}
         </div>
         <button
           onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
           className="p-1 hover:bg-zinc-800 rounded-md transition-colors active:opacity-50"
+          aria-label="Next month"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Previous month */}
-      <div className="text-[10px] font-medium text-zinc-500 mb-1 px-0.5">
-        {format(prevMonth, "MMMM yyyy")}
-      </div>
-      <MonthGrid
-        month={prevMonth}
-        selectedDate={selectedDate}
-        setSelectedDate={setSelectedDate}
-        datesWithTips={datesWithTips}
-      />
-
-      {/* Divider */}
-      <div className="border-t border-zinc-800/60 my-2.5" />
+      {/* Previous month (collapsible) */}
+      <AnimatePresence initial={false}>
+        {showPrevMonth && (
+          <motion.div
+            key="prev-month"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            <div className="text-[10px] font-medium text-zinc-500 mb-1 px-0.5">
+              {format(prevMonth, "MMMM yyyy")}
+            </div>
+            <MonthGrid
+              month={prevMonth}
+              selectedDate={selectedDate}
+              setSelectedDate={setSelectedDate}
+              datesWithTips={datesWithTips}
+            />
+            <div className="border-t border-zinc-800/60 my-2.5" />
+            <div className="text-[10px] font-medium text-zinc-500 mb-1 px-0.5">
+              {format(currentMonth, "MMMM yyyy")}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Current month */}
-      <div className="text-[10px] font-medium text-zinc-500 mb-1 px-0.5">
-        {format(currentMonth, "MMMM yyyy")}
-      </div>
       <MonthGrid
         month={currentMonth}
         selectedDate={selectedDate}
@@ -158,10 +178,23 @@ const TipCalendar = ({
         datesWithTips={datesWithTips}
       />
 
+      {/* Toggle for prev month (only when not forced-visible) */}
+      {!showPrevMonthByDefault && (
+        <button
+          onClick={() => setShowPrevMonth((v) => !v)}
+          className="mt-2 w-full flex items-center justify-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 py-1.5 rounded-md hover:bg-zinc-800/40 transition-colors"
+        >
+          <ChevronDown
+            className={`w-3 h-3 transition-transform ${showPrevMonth ? "rotate-180" : ""}`}
+          />
+          {showPrevMonth ? `Hide ${format(prevMonth, "MMMM")}` : `Show ${format(prevMonth, "MMMM")}`}
+        </button>
+      )}
+
       {selectedDate && (
         <button
           onClick={() => setSelectedDate(null)}
-          className="mt-3 w-full text-xs text-center py-1.5 rounded-md bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors text-zinc-300"
+          className="mt-2 w-full text-xs text-center py-1.5 rounded-md bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors text-zinc-300"
         >
           Show all tips
         </button>

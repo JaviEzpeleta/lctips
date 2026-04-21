@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import DefaultLoadingMini from "./DefaultLoadingMini"
 import BlurryEntrance from "./BlurryEntrance"
 import DetailProfileHeader from "./detail/DetailProfileHeader"
@@ -12,10 +13,12 @@ import ProfileNotFound from "./ProfileNotFound"
 import { ArrowUpRight, ArrowDownLeft } from "lucide-react"
 import { useProgressiveTransfers } from "@/hooks/useProgressiveTransfers"
 import { getCachedProfile, loadBatchProfiles } from "@/lib/profileCache"
-import { formatLargeNumber } from "@/lib/utils"
+import NumberFlow from "@number-flow/react"
 
 const TOKEN_FILTERS = ["All", "GHO", "BONSAI", "POINTLESS"] as const
 type TokenFilter = (typeof TOKEN_FILTERS)[number]
+
+type DirectionTab = "all" | "sent" | "received"
 
 const ITEMS_PER_PAGE = 50
 
@@ -41,6 +44,7 @@ const DetailClientPage = ({
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [currentMonth, setCurrentMonth] = useState(() => new Date())
   const [tokenFilter, setTokenFilter] = useState<TokenFilter>("All")
+  const [directionTab, setDirectionTab] = useState<DirectionTab>("all")
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE)
   const [visibleCountSent, setVisibleCountSent] = useState(ITEMS_PER_PAGE)
   const [visibleCountReceived, setVisibleCountReceived] = useState(ITEMS_PER_PAGE)
@@ -245,6 +249,7 @@ const DetailClientPage = ({
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
                 datesWithTips={datesWithTipsSet}
+                showPrevMonthByDefault={false}
               />
             </BlurryEntrance>
 
@@ -252,63 +257,186 @@ const DetailClientPage = ({
               {tokenFilterTabs}
             </BlurryEntrance>
 
-            {/* Transfer count */}
-            <div className="text-xs text-zinc-500 mb-2 px-2">
-              {filteredTransfers.length} transfer
-              {filteredTransfers.length !== 1 ? "s" : ""}
-              {selectedDate && (
-                <span>
-                  {" "}
-                  on {selectedDate}
-                </span>
-              )}
-              {streamingIndicator}
+            {/* Sticky direction segmented control */}
+            <div className="sticky top-0 z-20 -mx-2 px-2 py-2 mb-2 bg-zinc-900/85 backdrop-blur-md">
+              <div className="grid grid-cols-3 gap-1 bg-black/40 rounded-xl p-1 ring-1 ring-white/[0.03]">
+                {(
+                  [
+                    {
+                      key: "all",
+                      label: "All",
+                      count: filteredTransfers.length,
+                      activeBg: "bg-zinc-800",
+                      activeText: "text-zinc-100",
+                      activeRing: "ring-white/10",
+                      icon: null,
+                    },
+                    {
+                      key: "sent",
+                      label: "Sent",
+                      count: sentTransfers.length,
+                      activeBg: "bg-orange-500/15",
+                      activeText: "text-orange-300",
+                      activeRing: "ring-orange-400/20",
+                      icon: ArrowUpRight,
+                    },
+                    {
+                      key: "received",
+                      label: "Received",
+                      count: receivedTransfers.length,
+                      activeBg: "bg-emerald-500/15",
+                      activeText: "text-emerald-300",
+                      activeRing: "ring-emerald-400/20",
+                      icon: ArrowDownLeft,
+                    },
+                  ] as const
+                ).map((tab) => {
+                  const isActive = directionTab === tab.key
+                  const Icon = tab.icon
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setDirectionTab(tab.key)}
+                      className={`relative flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${
+                        isActive
+                          ? `${tab.activeBg} ${tab.activeText} ring-1 ${tab.activeRing}`
+                          : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      {Icon && <Icon className="w-3.5 h-3.5" />}
+                      <span>{tab.label}</span>
+                      <span className="text-[10px] opacity-70 tabular-nums">
+                        <NumberFlow value={tab.count} />
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
-            <TotalsSummary tokenTotals={tokenTotals} isStreaming={isStreaming} />
-
-            {!selectedDate && (
-              <>
-                <TopCounterparties
-                  transfers={allTransfers}
-                  direction="received"
-                  isStreaming={isStreaming}
-                />
-                <TopCounterparties
-                  transfers={allTransfers}
-                  direction="sent"
-                  isStreaming={isStreaming}
-                />
-              </>
-            )}
-
-            {/* Transfer list */}
-            <div className="space-y-0.5">
-              {visibleTransfers.map((transfer, index) => (
-                <DetailTransferRow
-                  key={`${transfer.transactionHash}-${transfer.direction}-${transfer.symbol}`}
-                  transfer={transfer}
-                  index={index}
-                />
-              ))}
-            </div>
-
-            {filteredTransfers.length === 0 && !isStreaming && (
-              <div className="text-center py-12 text-zinc-500 text-sm">
-                No transfers found
+            {/* Context line: selected date / streaming */}
+            {(selectedDate || isStreaming) && (
+              <div className="text-[11px] text-zinc-500 mb-2 px-2 flex items-center gap-1.5">
+                {selectedDate && <span>On {selectedDate}</span>}
+                {streamingIndicator}
               </div>
             )}
 
-            {hasMore && (
-              <button
-                onClick={() =>
-                  setVisibleCount((prev) => prev + ITEMS_PER_PAGE)
-                }
-                className="w-full mt-4 py-2 text-sm text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-zinc-800/50 rounded-lg transition-colors"
+            {/* Tab-aware content */}
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={directionTab}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
               >
-                Load more ({filteredTransfers.length - visibleCount} remaining)
-              </button>
-            )}
+                {directionTab === "all" && (
+                  <>
+                    <TotalsSummary
+                      tokenTotals={tokenTotals}
+                      isStreaming={isStreaming}
+                    />
+                    <div className="space-y-0.5">
+                      {visibleTransfers.map((transfer, index) => (
+                        <DetailTransferRow
+                          key={`${transfer.transactionHash}-${transfer.direction}-${transfer.symbol}`}
+                          transfer={transfer}
+                          index={index}
+                        />
+                      ))}
+                    </div>
+                    {filteredTransfers.length === 0 && !isStreaming && (
+                      <div className="text-center py-12 text-zinc-500 text-sm">
+                        No transfers found
+                      </div>
+                    )}
+                    {hasMore && (
+                      <button
+                        onClick={() =>
+                          setVisibleCount((prev) => prev + ITEMS_PER_PAGE)
+                        }
+                        className="w-full mt-4 py-2 text-sm text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-zinc-800/50 rounded-lg transition-colors"
+                      >
+                        Load more ({filteredTransfers.length - visibleCount} remaining)
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {directionTab === "sent" && (
+                  <>
+                    {!selectedDate && (
+                      <TopCounterparties
+                        transfers={allTransfers}
+                        direction="sent"
+                        isStreaming={isStreaming}
+                      />
+                    )}
+                    <div className="space-y-0.5">
+                      {visibleSent.map((transfer, index) => (
+                        <DetailTransferRow
+                          key={`sent-${transfer.transactionHash}-${transfer.direction}-${transfer.symbol}`}
+                          transfer={transfer}
+                          index={index}
+                        />
+                      ))}
+                    </div>
+                    {sentTransfers.length === 0 && !isStreaming && (
+                      <div className="text-center py-12 text-zinc-500 text-sm">
+                        No sent transfers
+                      </div>
+                    )}
+                    {hasMoreSent && (
+                      <button
+                        onClick={() =>
+                          setVisibleCountSent((prev) => prev + ITEMS_PER_PAGE)
+                        }
+                        className="w-full mt-4 py-2 text-sm text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-zinc-800/50 rounded-lg transition-colors"
+                      >
+                        Load more ({sentTransfers.length - visibleCountSent} remaining)
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {directionTab === "received" && (
+                  <>
+                    {!selectedDate && (
+                      <TopCounterparties
+                        transfers={allTransfers}
+                        direction="received"
+                        isStreaming={isStreaming}
+                      />
+                    )}
+                    <div className="space-y-0.5">
+                      {visibleReceived.map((transfer, index) => (
+                        <DetailTransferRow
+                          key={`recv-${transfer.transactionHash}-${transfer.direction}-${transfer.symbol}`}
+                          transfer={transfer}
+                          index={index}
+                        />
+                      ))}
+                    </div>
+                    {receivedTransfers.length === 0 && !isStreaming && (
+                      <div className="text-center py-12 text-zinc-500 text-sm">
+                        No received transfers
+                      </div>
+                    )}
+                    {hasMoreReceived && (
+                      <button
+                        onClick={() =>
+                          setVisibleCountReceived((prev) => prev + ITEMS_PER_PAGE)
+                        }
+                        className="w-full mt-4 py-2 text-sm text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-zinc-800/50 rounded-lg transition-colors"
+                      >
+                        Load more ({receivedTransfers.length - visibleCountReceived} remaining)
+                      </button>
+                    )}
+                  </>
+                )}
+              </motion.div>
+            </AnimatePresence>
 
             {loadMorePagesButton}
           </div>
@@ -378,6 +506,27 @@ const DetailClientPage = ({
                       <span className="text-xs text-zinc-500">
                         {sentTransfers.length}
                       </span>
+                      {ghoTotals && ghoTotals.sent > 0 && (
+                        <span className="text-xs text-orange-300/80 tabular-nums">
+                          <NumberFlow
+                            value={ghoTotals.sent}
+                            prefix="$"
+                            format={
+                              ghoTotals.sent >= 10000
+                                ? {
+                                    notation: "compact",
+                                    compactDisplay: "short",
+                                    maximumFractionDigits: 1,
+                                  }
+                                : {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                            }
+                          />
+                          {" "}GHO
+                        </span>
+                      )}
                     </div>
                     {!selectedDate && (
                       <TopCounterparties
@@ -426,6 +575,27 @@ const DetailClientPage = ({
                       <span className="text-xs text-zinc-500">
                         {receivedTransfers.length}
                       </span>
+                      {ghoTotals && ghoTotals.received > 0 && (
+                        <span className="text-xs text-emerald-300/80 tabular-nums">
+                          <NumberFlow
+                            value={ghoTotals.received}
+                            prefix="$"
+                            format={
+                              ghoTotals.received >= 10000
+                                ? {
+                                    notation: "compact",
+                                    compactDisplay: "short",
+                                    maximumFractionDigits: 1,
+                                  }
+                                : {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                            }
+                          />
+                          {" "}GHO
+                        </span>
+                      )}
                     </div>
                     {!selectedDate && (
                       <TopCounterparties
