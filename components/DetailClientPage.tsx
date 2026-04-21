@@ -11,6 +11,7 @@ import TopCounterparties from "./detail/TopCounterparties"
 import ProfileNotFound from "./ProfileNotFound"
 import { ArrowUpRight, ArrowDownLeft } from "lucide-react"
 import { useProgressiveTransfers } from "@/hooks/useProgressiveTransfers"
+import { getCachedProfile, loadBatchProfiles } from "@/lib/profileCache"
 
 const TOKEN_FILTERS = ["All", "GHO", "BONSAI", "POINTLESS"] as const
 type TokenFilter = (typeof TOKEN_FILTERS)[number]
@@ -56,6 +57,21 @@ const DetailClientPage = ({
     setVisibleCountSent(ITEMS_PER_PAGE)
     setVisibleCountReceived(ITEMS_PER_PAGE)
   }, [selectedDate, tokenFilter])
+
+  // Warm the profile cache in one batched request per transfers update,
+  // instead of letting each row fire its own /api/profile-data-by-address POST.
+  useEffect(() => {
+    if (allTransfers.length === 0) return
+    const needed = new Set<string>()
+    for (const t of allTransfers) {
+      const addr = t.counterpartyAddress
+      if (!addr) continue
+      if (getCachedProfile(addr) !== undefined) continue
+      needed.add(addr)
+    }
+    if (needed.size === 0) return
+    loadBatchProfiles(Array.from(needed))
+  }, [allTransfers])
 
   const filteredTransfers = useMemo(() => {
     let result = allTransfers
