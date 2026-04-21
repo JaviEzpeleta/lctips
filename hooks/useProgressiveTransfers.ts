@@ -6,7 +6,7 @@ import toast from "react-hot-toast"
 
 const PAGES_PER_BURST = 5
 const FETCH_TIMEOUT_MS = 30_000
-const AUTO_CONTINUE_DELAY_MS = 1500
+const AUTO_CONTINUE_DELAY_MS = 8000
 
 type PageResult =
   | { kind: "ok"; page: number; transfers: DetailTransfer[]; hasMore: boolean; profile?: any }
