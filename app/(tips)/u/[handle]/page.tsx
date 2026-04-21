@@ -1,4 +1,4 @@
-import HandleClientPage from "@/components/HandleClientPage"
+import DetailClientPage from "@/components/DetailClientPage"
 import { getLensProfileByHandle } from "@/lib/lens-api"
 
 export const generateMetadata = async ({
@@ -10,13 +10,11 @@ export const generateMetadata = async ({
 
   const profile = await getLensProfileByHandle(handle)
 
-  // console.table(profile)
-
   if (!profile || !profile.metadata?.name) {
     const appName = "LCTips.xyz"
     const theTitle = `@${handle} - Profile Not Found - LCTips`
     const theDescription = `Profile @${handle} not found on Lens Chain.`
-    
+
     return {
       title: theTitle,
       description: theDescription,
@@ -25,8 +23,8 @@ export const generateMetadata = async ({
   }
 
   const appName = "LCTips.xyz"
-  const theTitle = `${profile.metadata.name} (@${handle}) - LCTips`
-  const theDescription = `@${handle}'s tips on Lens Chain, visualized.`
+  const theTitle = `${profile.metadata.name} (@${handle}) Detail - LCTips`
+  const theDescription = `@${handle}'s chronological tip history on Lens Chain.`
 
   const ogImage = `https://lctips.xyz/thumbnail.png`
   const images = [ogImage]
@@ -36,7 +34,7 @@ export const generateMetadata = async ({
     description: theDescription,
     applicationName: appName,
     referrer: "origin-when-cross-origin",
-    keywords: ["lens", "lens protocol", "lens chain", "tips", "visualize"],
+    keywords: ["lens", "lens protocol", "lens chain", "tips", "detail"],
     authors: [{ name: "LCTips" }],
     creator: "LCTips",
     publisher: "LCTips",
@@ -53,14 +51,14 @@ export const generateMetadata = async ({
   }
 }
 
-const HandlePage = async ({
+const DetailPage = async ({
   params,
 }: {
   params: Promise<{ handle: string }>
 }) => {
   const { handle } = await params
 
-  return <HandleClientPage handle={handle} />
+  return <DetailClientPage handle={handle} />
 }
 
-export default HandlePage
+export default DetailPage
