@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import DefaultLoadingMini from "./DefaultLoadingMini"
 import BlurryEntrance from "./BlurryEntrance"
 import DetailProfileHeader from "./detail/DetailProfileHeader"
@@ -11,14 +11,19 @@ import TopCounterparties from "./detail/TopCounterparties"
 import ProfileNotFound from "./ProfileNotFound"
 import { ArrowUpRight, ArrowDownLeft } from "lucide-react"
 import { useProgressiveTransfers } from "@/hooks/useProgressiveTransfers"
-import toast from "react-hot-toast"
 
 const TOKEN_FILTERS = ["All", "GHO", "BONSAI", "POINTLESS"] as const
 type TokenFilter = (typeof TOKEN_FILTERS)[number]
 
 const ITEMS_PER_PAGE = 50
 
-const DetailClientPage = ({ handle }: { handle: string }) => {
+const DetailClientPage = ({
+  handle,
+  initialProfile,
+}: {
+  handle: string
+  initialProfile: any | null
+}) => {
   const {
     transfers: allTransfers,
     datesWithTips: datesWithTipsSet,
@@ -32,43 +37,18 @@ const DetailClientPage = ({ handle }: { handle: string }) => {
   } = useProgressiveTransfers(handle)
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [basicProfileData, setBasicProfileData] = useState<any>(null)
+  const [currentMonth, setCurrentMonth] = useState(() => new Date())
   const [tokenFilter, setTokenFilter] = useState<TokenFilter>("All")
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE)
   const [visibleCountSent, setVisibleCountSent] = useState(ITEMS_PER_PAGE)
   const [visibleCountReceived, setVisibleCountReceived] = useState(ITEMS_PER_PAGE)
 
-  const basicProfileRef = useRef(false)
-
-  // Use progressive profile data when available, fall back to basic profile
-  const profileData = progressiveProfileData || basicProfileData
+  // Prefer progressive profile once it arrives; otherwise use the
+  // server-resolved initialProfile so the header renders immediately.
+  const profileData = progressiveProfileData || initialProfile
 
   const isInitialLoading = currentPage === 0 && isLoadingPage
   const isStreaming = isLoadingPage || isAutoLoading
-
-  // Fetch basic profile for fast header render
-  useEffect(() => {
-    if (!handle || basicProfileRef.current) return
-    basicProfileRef.current = true
-    const fetchBasic = async () => {
-      try {
-        const res = await fetch("/api/basic-profile", {
-          method: "POST",
-          body: JSON.stringify({ handle }),
-        })
-        const data = await res.json()
-        if (data.profile) {
-          setBasicProfileData(data.profile)
-          console.log("👤✅ [detail] Basic profile loaded:", data.profile)
-        }
-      } catch (err) {
-        console.error("👤❌ [detail] Basic profile fetch failed:", err)
-        toast.error("Couldn't load quick profile")
-      }
-    }
-    fetchBasic()
-  }, [handle])
 
   // Reset visible counts when filters change
   useEffect(() => {

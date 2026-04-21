@@ -1,5 +1,8 @@
+import { cache } from "react"
 import DetailClientPage from "@/components/DetailClientPage"
 import { getLensProfileByHandle } from "@/lib/lens-api"
+
+const getProfile = cache(getLensProfileByHandle)
 
 export const generateMetadata = async ({
   params,
@@ -8,7 +11,7 @@ export const generateMetadata = async ({
 }) => {
   const { handle } = await params
 
-  const profile = await getLensProfileByHandle(handle)
+  const profile = await getProfile(handle)
 
   if (!profile || !profile.metadata?.name) {
     const appName = "LCTips.xyz"
@@ -57,8 +60,14 @@ const DetailPage = async ({
   params: Promise<{ handle: string }>
 }) => {
   const { handle } = await params
+  const initialProfile = await getProfile(handle)
 
-  return <DetailClientPage handle={handle} />
+  return (
+    <DetailClientPage
+      handle={handle}
+      initialProfile={initialProfile?.address ? initialProfile : null}
+    />
+  )
 }
 
 export default DetailPage
