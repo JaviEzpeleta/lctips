@@ -7,6 +7,13 @@ import toast from "react-hot-toast"
 const PAGES_PER_BURST = 5
 const FETCH_TIMEOUT_MS = 30_000
 
+type PageResult =
+  | { kind: "ok"; page: number; transfers: DetailTransfer[]; hasMore: boolean; profile?: any }
+  | { kind: "empty"; page: number; profile?: any }
+  | { kind: "notFound" }
+  | { kind: "error"; page: number; message: string }
+  | { kind: "aborted" }
+
 export function useProgressiveTransfers(handle: string) {
   const [transfers, setTransfers] = useState<DetailTransfer[]>([])
   const [datesWithTips, setDatesWithTips] = useState<Set<string>>(new Set())
@@ -37,17 +44,16 @@ export function useProgressiveTransfers(handle: string) {
     setDatesWithTips(dates)
   }, [])
 
-  const fetchPage = useCallback(
-    async (pageNum: number, signal: AbortSignal) => {
-      setIsLoadingPage(true)
+  const fetchPageRaw = useCallback(
+    async (pageNum: number, signal: AbortSignal): Promise<PageResult> => {
       const startTime = performance.now()
-      console.log(`📡 [transfers] Fetching page ${pageNum} for @${handle}...`)
 
       try {
-        // Combine the caller's abort signal with a 30s timeout
         const timeoutController = new AbortController()
-        const timeoutId = setTimeout(() => timeoutController.abort(), FETCH_TIMEOUT_MS)
-
+        const timeoutId = setTimeout(
+          () => timeoutController.abort(),
+          FETCH_TIMEOUT_MS
+        )
         const combinedSignal = AbortSignal.any([signal, timeoutController.signal])
 
         const res = await fetch("/api/detail-transfers-page", {
@@ -59,87 +65,143 @@ export function useProgressiveTransfers(handle: string) {
 
         clearTimeout(timeoutId)
 
-        if (signal.aborted) return null
-
-        if (res.status === 404) {
-          toast.error(`Profile @${handle} not found`)
-          setProfileNotFound(true)
-          setIsDone(true)
-          setIsLoadingPage(false)
-          return null
-        }
+        if (signal.aborted) return { kind: "aborted" }
+        if (res.status === 404) return { kind: "notFound" }
 
         if (!res.ok) {
-          const errorData = await res.json().catch(() => ({ error: "Unknown error" }))
-          const errorMsg = errorData.error || `HTTP ${res.status}`
-          toast.error(`Page ${pageNum} failed: ${errorMsg}`)
-          console.error(`❌ [transfers] Page ${pageNum} error: ${errorMsg}`)
-          setIsLoadingPage(false)
-          return null
-        }
-
-        const data = await res.json()
-
-        if (data.profile) {
-          setProfileData(data.profile)
-        }
-
-        if (!data.transfers || data.transfers.length === 0) {
-          const elapsed = (performance.now() - startTime).toFixed(0)
-          const totalTransfers = dedupMapRef.current.size
-          console.log(`🎉 [transfers] Page ${pageNum} empty in ${elapsed}ms — done. Total: ${totalTransfers} transfers`)
-          toast.success(`All transfers loaded (${totalTransfers} total)`)
-          setIsDone(true)
-          setIsLoadingPage(false)
-          return null
-        }
-
-        // Merge into dedup map
-        for (const t of data.transfers as DetailTransfer[]) {
-          const key = `${t.transactionHash}:${t.direction}:${t.symbol}`
-          const existing = dedupMapRef.current.get(key)
-          if (existing) {
-            const sum = parseFloat(existing.amount) + parseFloat(t.amount)
-            dedupMapRef.current.set(key, { ...existing, amount: sum.toString() })
-          } else {
-            dedupMapRef.current.set(key, t)
+          const errorData = await res
+            .json()
+            .catch(() => ({ error: "Unknown error" }))
+          return {
+            kind: "error",
+            page: pageNum,
+            message: errorData.error || `HTTP ${res.status}`,
           }
         }
 
-        rebuildFromMap()
-        setCurrentPage(pageNum)
-        setIsLoadingPage(false)
-
+        const data = await res.json()
         const elapsed = (performance.now() - startTime).toFixed(0)
+
+        if (!data.transfers || data.transfers.length === 0) {
+          console.log(`🎉 [transfers] Page ${pageNum} empty in ${elapsed}ms`)
+          return { kind: "empty", page: pageNum, profile: data.profile }
+        }
+
         console.log(
           `✅ [transfers] Page ${pageNum}: ${data.transfers.length} transfers, hasMore=${data.hasMore}, ${elapsed}ms`
         )
 
-        if (!data.hasMore) {
-          const totalTransfers = dedupMapRef.current.size
-          toast.success(`All transfers loaded (${totalTransfers} total)`)
-          setIsDone(true)
-          return null
+        return {
+          kind: "ok",
+          page: pageNum,
+          transfers: data.transfers as DetailTransfer[],
+          hasMore: !!data.hasMore,
+          profile: data.profile,
         }
-
-        return pageNum + 1
       } catch (error: any) {
         if (error?.name === "AbortError") {
-          // Distinguish timeout from user-initiated abort
           if (!signal.aborted) {
-            toast.error(`Page ${pageNum} timed out after ${FETCH_TIMEOUT_MS / 1000}s`)
-            console.error(`⏱️ [transfers] Page ${pageNum} timed out after ${FETCH_TIMEOUT_MS}ms`)
-            setIsLoadingPage(false)
+            return {
+              kind: "error",
+              page: pageNum,
+              message: `timed out after ${FETCH_TIMEOUT_MS / 1000}s`,
+            }
           }
-          return null
+          return { kind: "aborted" }
         }
-        toast.error(`Network error loading page ${pageNum}`)
-        console.error(`❌ [transfers] Network error on page ${pageNum}:`, error)
-        setIsLoadingPage(false)
-        return null
+        return {
+          kind: "error",
+          page: pageNum,
+          message: error?.message || "Network error",
+        }
       }
     },
-    [handle, rebuildFromMap]
+    [handle]
+  )
+
+  const mergeTransfers = useCallback((newTransfers: DetailTransfer[]) => {
+    for (const t of newTransfers) {
+      const key = `${t.transactionHash}:${t.direction}:${t.symbol}`
+      const existing = dedupMapRef.current.get(key)
+      if (existing) {
+        const sum = parseFloat(existing.amount) + parseFloat(t.amount)
+        dedupMapRef.current.set(key, { ...existing, amount: sum.toString() })
+      } else {
+        dedupMapRef.current.set(key, t)
+      }
+    }
+  }, [])
+
+  const runBurst = useCallback(
+    async (firstPage: number, controller: AbortController) => {
+      const pages = Array.from(
+        { length: PAGES_PER_BURST },
+        (_, i) => firstPage + i
+      )
+      setIsLoadingPage(true)
+      const burstStart = performance.now()
+
+      // Fire all pages in parallel with a shared signal.
+      const results = await Promise.all(
+        pages.map((p) => fetchPageRaw(p, controller.signal))
+      )
+
+      if (controller.signal.aborted) return
+
+      let notFound = false
+      let lastGoodPage = 0
+      let anyDone = false
+      let anyOk = false
+
+      for (const r of results) {
+        if (r.kind === "notFound") {
+          notFound = true
+          break
+        }
+        if (r.kind === "ok") {
+          anyOk = true
+          if (r.profile) setProfileData(r.profile)
+          mergeTransfers(r.transfers)
+          if (r.page > lastGoodPage) lastGoodPage = r.page
+          if (!r.hasMore) anyDone = true
+        } else if (r.kind === "empty") {
+          if (r.profile) setProfileData(r.profile)
+          anyDone = true
+        } else if (r.kind === "error") {
+          toast.error(`Page ${r.page} failed: ${r.message}`)
+          console.error(`❌ [transfers] Page ${r.page}: ${r.message}`)
+        }
+      }
+
+      if (notFound) {
+        toast.error(`Profile @${handle} not found`)
+        setProfileNotFound(true)
+        setIsDone(true)
+        setIsLoadingPage(false)
+        setAutoLoadRemaining(0)
+        return
+      }
+
+      if (anyOk) rebuildFromMap()
+      if (lastGoodPage > 0) setCurrentPage(lastGoodPage)
+      setIsLoadingPage(false)
+
+      if (anyDone) {
+        const total = dedupMapRef.current.size
+        console.log(
+          `🏁 [transfers] Burst done in ${(performance.now() - burstStart).toFixed(0)}ms, total ${total}`
+        )
+        toast.success(`All transfers loaded (${total} total)`)
+        setIsDone(true)
+      } else {
+        console.log(
+          `🏁 [transfers] Burst complete in ${(performance.now() - burstStart).toFixed(0)}ms, total ${dedupMapRef.current.size}`
+        )
+      }
+
+      setAutoLoadRemaining(0)
+    },
+    [fetchPageRaw, handle, mergeTransfers, rebuildFromMap]
   )
 
   // Auto-load burst
@@ -161,35 +223,12 @@ export function useProgressiveTransfers(handle: string) {
     setProfileNotFound(false)
     setAutoLoadRemaining(PAGES_PER_BURST)
 
-    const loadBurst = async () => {
-      let nextPage = 1
-      let remaining = PAGES_PER_BURST
-      const burstStart = performance.now()
-      let pagesLoaded = 0
-
-      while (remaining > 0 && !controller.signal.aborted) {
-        const result = await fetchPage(nextPage, controller.signal)
-        if (result === null) break
-        nextPage = result
-        remaining--
-        pagesLoaded++
-      }
-
-      if (!controller.signal.aborted) {
-        const burstElapsed = (performance.now() - burstStart).toFixed(0)
-        console.log(
-          `🏁 [transfers] Initial burst complete: ${pagesLoaded} pages loaded in ${burstElapsed}ms, total transfers: ${dedupMapRef.current.size}`
-        )
-        setAutoLoadRemaining(0)
-      }
-    }
-
-    loadBurst()
+    runBurst(1, controller)
 
     return () => {
       controller.abort()
     }
-  }, [handle, fetchPage])
+  }, [handle, runBurst])
 
   const loadMorePages = useCallback(() => {
     if (isDone || isLoadingPage) return
@@ -197,30 +236,8 @@ export function useProgressiveTransfers(handle: string) {
     const controller = new AbortController()
     abortRef.current = controller
     setAutoLoadRemaining(PAGES_PER_BURST)
-
-    const loadBurst = async () => {
-      let nextPage = currentPage + 1
-      let remaining = PAGES_PER_BURST
-      const burstStart = performance.now()
-      let pagesLoaded = 0
-
-      while (remaining > 0 && !controller.signal.aborted) {
-        const result = await fetchPage(nextPage, controller.signal)
-        if (result === null) break
-        nextPage = result
-        remaining--
-        pagesLoaded++
-      }
-
-      const burstElapsed = (performance.now() - burstStart).toFixed(0)
-      console.log(
-        `🏁 [transfers] Load-more burst complete: ${pagesLoaded} pages loaded in ${burstElapsed}ms, total transfers: ${dedupMapRef.current.size}`
-      )
-      setAutoLoadRemaining(0)
-    }
-
-    loadBurst()
-  }, [isDone, isLoadingPage, currentPage, fetchPage])
+    runBurst(currentPage + 1, controller)
+  }, [isDone, isLoadingPage, currentPage, runBurst])
 
   // Cleanup on unmount
   useEffect(() => {
