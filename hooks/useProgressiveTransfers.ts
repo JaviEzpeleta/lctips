@@ -7,6 +7,7 @@ import toast from "react-hot-toast"
 const PAGES_PER_BURST = 5
 const FETCH_TIMEOUT_MS = 30_000
 const AUTO_CONTINUE_DELAY_MS = 8000
+const MAX_TRANSFERS = 1000
 
 type PageResult =
   | { kind: "ok"; page: number; transfers: DetailTransfer[]; hasMore: boolean; profile?: any }
@@ -175,6 +176,14 @@ export function useProgressiveTransfers(handle: string) {
           anyDone = true
           break
         }
+        if (dedupMapRef.current.size >= MAX_TRANSFERS) {
+          console.log(
+            `🛑 [transfers] Hit ${MAX_TRANSFERS} transfer cap, stopping auto-load`
+          )
+          toast.success(`Loaded ${dedupMapRef.current.size} transfers (cap reached)`)
+          anyDone = true
+          break
+        }
       }
 
       if (notFound) {
@@ -248,6 +257,10 @@ export function useProgressiveTransfers(handle: string) {
     if (isDone || isLoadingPage || profileNotFound) return
     if (autoLoadRemaining > 0) return
     if (currentPage === 0) return // initial burst hasn't landed yet
+    if (transfers.length >= MAX_TRANSFERS) {
+      setIsDone(true)
+      return
+    }
 
     console.log(
       `⏳ [transfers] Auto-continue: next burst in ${AUTO_CONTINUE_DELAY_MS}ms (from page ${currentPage})`
@@ -263,6 +276,7 @@ export function useProgressiveTransfers(handle: string) {
     autoLoadRemaining,
     currentPage,
     loadMorePages,
+    transfers.length,
   ])
 
   // Cleanup on unmount

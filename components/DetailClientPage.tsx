@@ -12,6 +12,7 @@ import ProfileNotFound from "./ProfileNotFound"
 import { ArrowUpRight, ArrowDownLeft } from "lucide-react"
 import { useProgressiveTransfers } from "@/hooks/useProgressiveTransfers"
 import { getCachedProfile, loadBatchProfiles } from "@/lib/profileCache"
+import { formatLargeNumber } from "@/lib/utils"
 
 const TOKEN_FILTERS = ["All", "GHO", "BONSAI", "POINTLESS"] as const
 type TokenFilter = (typeof TOKEN_FILTERS)[number]
@@ -137,6 +138,11 @@ const DetailClientPage = ({
       }>
   }, [filteredTransfers])
 
+  const ghoTotals = useMemo(
+    () => tokenTotals.find((t) => t.displayName === "GHO"),
+    [tokenTotals]
+  )
+
   // Mobile: mixed list pagination
   const visibleTransfers = filteredTransfers.slice(0, visibleCount)
   const hasMore = visibleCount < filteredTransfers.length
@@ -261,16 +267,20 @@ const DetailClientPage = ({
 
             <TotalsSummary tokenTotals={tokenTotals} isStreaming={isStreaming} />
 
-            <TopCounterparties
-              transfers={allTransfers}
-              direction="received"
-              isStreaming={isStreaming}
-            />
-            <TopCounterparties
-              transfers={allTransfers}
-              direction="sent"
-              isStreaming={isStreaming}
-            />
+            {!selectedDate && (
+              <>
+                <TopCounterparties
+                  transfers={allTransfers}
+                  direction="received"
+                  isStreaming={isStreaming}
+                />
+                <TopCounterparties
+                  transfers={allTransfers}
+                  direction="sent"
+                  isStreaming={isStreaming}
+                />
+              </>
+            )}
 
             {/* Transfer list */}
             <div className="space-y-0.5">
@@ -369,11 +379,13 @@ const DetailClientPage = ({
                         {sentTransfers.length}
                       </span>
                     </div>
-                    <TopCounterparties
-                      transfers={allTransfers}
-                      direction="sent"
-                      isStreaming={isStreaming}
-                    />
+                    {!selectedDate && (
+                      <TopCounterparties
+                        transfers={allTransfers}
+                        direction="sent"
+                        isStreaming={isStreaming}
+                      />
+                    )}
                     <div className="space-y-0.5">
                       {visibleSent.map((transfer, index) => (
                         <DetailTransferRow
@@ -415,11 +427,13 @@ const DetailClientPage = ({
                         {receivedTransfers.length}
                       </span>
                     </div>
-                    <TopCounterparties
-                      transfers={allTransfers}
-                      direction="received"
-                      isStreaming={isStreaming}
-                    />
+                    {!selectedDate && (
+                      <TopCounterparties
+                        transfers={allTransfers}
+                        direction="received"
+                        isStreaming={isStreaming}
+                      />
+                    )}
                     <div className="space-y-0.5">
                       {visibleReceived.map((transfer, index) => (
                         <DetailTransferRow
