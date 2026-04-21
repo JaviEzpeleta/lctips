@@ -22,12 +22,14 @@ const TopCounterpartyRow = memo(function TopCounterpartyRow({
   profile,
   handle,
   total,
+  count,
   direction,
   rank,
 }: {
   profile: NonNullable<CachedProfile>
   handle: string
   total: number
+  count: number
   direction: Direction
   rank: number
 }) {
@@ -55,6 +57,9 @@ const TopCounterpartyRow = memo(function TopCounterpartyRow({
         )}
         <span className="text-xs font-medium truncate flex-1 min-w-0">
           {name}
+          <span className="ml-1 text-[10px] text-zinc-500 tabular-nums font-normal">
+            ({count})
+          </span>
         </span>
         <span
           className={`text-xs font-bold tabular-nums flex-shrink-0 ${
@@ -80,15 +85,21 @@ const TopCounterparties = ({
   const candidates = useMemo(() => {
     const want: DetailTransfer["direction"] =
       direction === "sent" ? "outcome" : "income"
-    const sums = new Map<string, number>()
+    const stats = new Map<string, { total: number; count: number }>()
     for (const t of transfers) {
       if (t.direction !== want) continue
       if (!isGhoTransfer(t)) continue
       if (!t.counterpartyAddress) continue
       const key = t.counterpartyAddress.toLowerCase()
-      sums.set(key, (sums.get(key) ?? 0) + Number(t.amount))
+      const prev = stats.get(key)
+      if (prev) {
+        prev.total += Number(t.amount)
+        prev.count += 1
+      } else {
+        stats.set(key, { total: Number(t.amount), count: 1 })
+      }
     }
-    return Array.from(sums.entries()).sort((a, b) => b[1] - a[1])
+    return Array.from(stats.entries()).sort((a, b) => b[1].total - a[1].total)
   }, [transfers, direction])
 
   const [cacheVersion, setCacheVersion] = useState(0)
@@ -109,15 +120,16 @@ const TopCounterparties = ({
     const result: Array<{
       address: string
       total: number
+      count: number
       profile: NonNullable<CachedProfile>
       handle: string
     }> = []
-    for (const [address, total] of candidates) {
+    for (const [address, { total, count }] of candidates) {
       const profile = getCachedProfile(address)
       if (!profile) continue
       const handle = profile.username.localName
       if (!handle) continue
-      result.push({ address, total, profile, handle })
+      result.push({ address, total, count, profile, handle })
       if (result.length >= TOP_N) break
     }
     return result
@@ -147,6 +159,7 @@ const TopCounterparties = ({
             profile={entry.profile}
             handle={entry.handle}
             total={entry.total}
+            count={entry.count}
             direction={direction}
             rank={i + 1}
           />
