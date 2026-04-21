@@ -5,7 +5,7 @@ import {
   CachedProfile,
   getCachedProfile,
   loadProfile,
-  subscribeProfileCache,
+  subscribeProfile,
 } from "@/lib/profileCache"
 
 export const useProfileByAddress = (address?: string | null) => {
@@ -21,7 +21,7 @@ export const useProfileByAddress = (address?: string | null) => {
 
     setProfile(getCachedProfile(address))
 
-    const unsubscribe = subscribeProfileCache(() => {
+    const unsubscribe = subscribeProfile(address, () => {
       setProfile(getCachedProfile(address))
     })
 
