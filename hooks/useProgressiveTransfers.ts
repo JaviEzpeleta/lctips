@@ -2,7 +2,6 @@
 
 import { DetailTransfer } from "@/lib/types"
 import { useCallback, useEffect, useRef, useState } from "react"
-import toast from "react-hot-toast"
 
 const PAGES_PER_BURST = 5
 const FETCH_TIMEOUT_MS = 30_000
@@ -25,6 +24,7 @@ export function useProgressiveTransfers(handle: string) {
   const [profileData, setProfileData] = useState<any>(null)
   const [profileNotFound, setProfileNotFound] = useState(false)
   const [autoLoadRemaining, setAutoLoadRemaining] = useState(PAGES_PER_BURST)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const dedupMapRef = useRef(new Map<string, DetailTransfer>())
   const abortRef = useRef<AbortController | null>(null)
@@ -137,6 +137,7 @@ export function useProgressiveTransfers(handle: string) {
   const runBurst = useCallback(
     async (firstPage: number, controller: AbortController) => {
       setIsLoadingPage(true)
+      setLoadError(null)
       const burstStart = performance.now()
 
       let notFound = false
@@ -157,8 +158,12 @@ export function useProgressiveTransfers(handle: string) {
           break
         }
         if (r.kind === "error") {
-          toast.error(`Page ${r.page} failed: ${r.message}`)
           console.error(`❌ [transfers] Page ${r.page}: ${r.message}`)
+          setLoadError(
+            lastGoodPage > 0 || dedupMapRef.current.size > 0
+              ? "Couldn't load more transfers right now. You can try again."
+              : "Couldn't load transfers right now. You can try again."
+          )
           break
         }
         if (r.kind === "empty") {
@@ -180,14 +185,12 @@ export function useProgressiveTransfers(handle: string) {
           console.log(
             `🛑 [transfers] Hit ${MAX_TRANSFERS} transfer cap, stopping auto-load`
           )
-          toast.success(`Loaded ${dedupMapRef.current.size} transfers (cap reached)`)
           anyDone = true
           break
         }
       }
 
       if (notFound) {
-        toast.error(`Profile @${handle} not found`)
         setProfileNotFound(true)
         setIsDone(true)
         setIsLoadingPage(false)
@@ -202,7 +205,6 @@ export function useProgressiveTransfers(handle: string) {
         console.log(
           `🏁 [transfers] Burst done in ${(performance.now() - burstStart).toFixed(0)}ms, total ${total}`
         )
-        toast.success(`All transfers loaded (${total} total)`)
         setIsDone(true)
       } else {
         console.log(
@@ -232,6 +234,7 @@ export function useProgressiveTransfers(handle: string) {
     setIsLoadingPage(false)
     setIsDone(false)
     setProfileNotFound(false)
+    setLoadError(null)
     setAutoLoadRemaining(PAGES_PER_BURST)
 
     runBurst(1, controller)
@@ -254,7 +257,7 @@ export function useProgressiveTransfers(handle: string) {
   // auto-loading, profile exists), schedule the next burst after a short
   // breathing pause so the UI can render what just streamed in.
   useEffect(() => {
-    if (isDone || isLoadingPage || profileNotFound) return
+    if (isDone || isLoadingPage || profileNotFound || loadError) return
     if (autoLoadRemaining > 0) return
     if (currentPage === 0) return // initial burst hasn't landed yet
     if (transfers.length >= MAX_TRANSFERS) {
@@ -273,6 +276,7 @@ export function useProgressiveTransfers(handle: string) {
     isDone,
     isLoadingPage,
     profileNotFound,
+    loadError,
     autoLoadRemaining,
     currentPage,
     loadMorePages,
@@ -298,5 +302,6 @@ export function useProgressiveTransfers(handle: string) {
     loadMorePages,
     profileData,
     profileNotFound,
+    loadError,
   }
 }

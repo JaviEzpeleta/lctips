@@ -39,6 +39,7 @@ const DetailClientPage = ({
     loadMorePages,
     profileData: progressiveProfileData,
     profileNotFound: progressiveProfileNotFound,
+    loadError,
   } = useProgressiveTransfers(handle)
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -180,7 +181,19 @@ const DetailClientPage = ({
     </span>
   ) : null
 
-  const loadMorePagesButton = !isDone && !isAutoLoading && (
+  const errorBanner = loadError && !isLoadingPage && (
+    <div className="mt-4 px-4 py-3 rounded-lg bg-amber-500/10 ring-1 ring-amber-500/20 text-amber-200/90 text-sm flex items-center justify-between gap-3">
+      <span>{loadError}</span>
+      <button
+        onClick={loadMorePages}
+        className="text-amber-100 hover:text-white bg-amber-500/15 hover:bg-amber-500/25 ring-1 ring-amber-400/30 px-3 py-1 rounded-md text-xs font-medium transition-colors"
+      >
+        Try again
+      </button>
+    </div>
+  )
+
+  const loadMorePagesButton = !isDone && !isAutoLoading && !loadError && (
     <button
       onClick={loadMorePages}
       disabled={isLoadingPage}
@@ -439,6 +452,7 @@ const DetailClientPage = ({
               </motion.div>
             </AnimatePresence>
 
+            {errorBanner}
             {loadMorePagesButton}
           </div>
 
@@ -635,6 +649,7 @@ const DetailClientPage = ({
             )}
 
             {/* Load more pages button below XL columns */}
+            {errorBanner}
             {loadMorePagesButton}
           </div>
         </>
