@@ -59,7 +59,7 @@ const TipFromUserRow = ({
               <Link
                 className="text-indigo-300 group inline-block font-semibold hover:text-indigo-400 active:opacity-50 transition-all"
                 target="_blank"
-                href={`https://pingpad.io/u/${profileData.username.localName}`}
+                href={`https://palus.app/u/${profileData.username.localName}`}
                 onMouseEnter={() => {
                   setIsHovering(true)
                 }}

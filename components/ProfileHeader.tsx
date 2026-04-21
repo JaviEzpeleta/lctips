@@ -62,7 +62,7 @@ const ProfileHeader = ({
             <Link
               className="text-indigo-300 group inline-block font-semibold hover:text-indigo-200 active:opacity-50 active:scale-95 transition-all"
               target="_blank"
-              href={`https://pingpad.io/u/${handle}`}
+              href={`https://palus.app/u/${handle}`}
               onMouseEnter={() => {
                 setIsHovering(true)
               }}

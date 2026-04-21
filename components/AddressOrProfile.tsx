@@ -36,7 +36,7 @@ const AddressOrProfile = ({
   return (
     <>
       <Link
-        href={`https://pingpad.io/u/${profile.username.localName}`}
+        href={`https://palus.app/u/${profile.username.localName}`}
         target="_blank"
         className="relative"
       >
@@ -66,7 +66,7 @@ const AddressOrProfile = ({
         <div>
           <h3 className="font-semibold text-base">
             <Link
-              href={`https://pingpad.io/u/${profile.username.localName}`}
+              href={`https://palus.app/u/${profile.username.localName}`}
               target="_blank"
               className="text-sm text-indigo-500 hover:!text-indigo-400 w-40 sm:w-56 truncate text-ellipsis block"
             >
