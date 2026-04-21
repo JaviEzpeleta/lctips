@@ -18,7 +18,7 @@ const Footer = () => {
         <div className="max-w-2xl mx-auto flex items-center justify-between px-2">
           <div>
             <Link
-              href="https://pingpad.io/p/2x3jf9g38h37tec9knm"
+              href="https://palus.app/posts/2x3jf9g38h37tec9knm"
               className="text-indigo-300 hover:text-indigo-400 active:opacity-50"
             >
               what is LCTips?

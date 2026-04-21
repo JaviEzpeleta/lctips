@@ -1,5 +1,13 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import {
+  differenceInDays,
+  differenceInHours,
+  differenceInMinutes,
+  format,
+  isSameYear,
+  isYesterday,
+} from "date-fns"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -48,4 +56,25 @@ export function formatLargeNumber(amount: number): string {
       maximumFractionDigits: 2,
     })
   }
+}
+
+/**
+ * Relative timestamp, e.g. "just now", "5m ago", "2h ago",
+ * "yesterday at 21:47", "Mon at 21:47", "Apr 20", "Apr 20, 2024".
+ */
+export function formatRelativeTime(date: Date, now: Date = new Date()): string {
+  const mins = differenceInMinutes(now, date)
+  if (mins < 1) return "just now"
+  if (mins < 60) return `${mins}m ago`
+
+  const hours = differenceInHours(now, date)
+  if (hours < 24 && !isYesterday(date)) return `${hours}h ago`
+
+  if (isYesterday(date)) return `yesterday at ${format(date, "HH:mm")}`
+
+  const days = differenceInDays(now, date)
+  if (days < 7) return `${format(date, "EEE")} at ${format(date, "HH:mm")}`
+
+  if (isSameYear(date, now)) return format(date, "MMM d")
+  return format(date, "MMM d, yyyy")
 }

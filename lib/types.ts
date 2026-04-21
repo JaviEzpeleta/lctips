@@ -40,3 +40,14 @@ export type StandardPublication = {
   content: string
   posted_at: string
 }
+
+export interface DetailTransfer {
+  timestamp: string
+  from: string
+  to: string
+  amount: string
+  symbol: string
+  transactionHash: string
+  direction: "income" | "outcome"
+  counterpartyAddress: string
+}
