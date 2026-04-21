@@ -3,6 +3,7 @@
 import { memo, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import NumberFlow from "@number-flow/react"
+import { AnimatePresence, motion } from "framer-motion"
 import { DetailTransfer } from "@/lib/types"
 import {
   CachedProfile,
@@ -41,7 +42,7 @@ const TopCounterpartyRow = memo(function TopCounterpartyRow({
     <Link href={`/u/${handle}`}>
       <div className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-zinc-900/50 transition-colors">
         <span className="text-[10px] text-zinc-600 w-4 tabular-nums flex-shrink-0">
-          {rank}
+          <NumberFlow value={rank} />
         </span>
         {picture ? (
           <div
@@ -167,18 +168,33 @@ const TopCounterparties = ({
           </span>
         )}
       </div>
-      <div className="space-y-0.5">
-        {top.map((entry, i) => (
-          <TopCounterpartyRow
-            key={entry.address}
-            profile={entry.profile}
-            handle={entry.handle}
-            total={entry.total}
-            count={entry.count}
-            direction={direction}
-            rank={i + 1}
-          />
-        ))}
+      <div className="space-y-0.5 relative">
+        <AnimatePresence initial={false}>
+          {top.map((entry, i) => (
+            <motion.div
+              key={entry.address}
+              layout
+              initial={{ opacity: 0, y: -8, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.96 }}
+              transition={{
+                layout: { type: "spring", stiffness: 420, damping: 34, mass: 0.7 },
+                opacity: { duration: 0.18 },
+                y: { duration: 0.22 },
+                scale: { duration: 0.22 },
+              }}
+            >
+              <TopCounterpartyRow
+                profile={entry.profile}
+                handle={entry.handle}
+                total={entry.total}
+                count={entry.count}
+                direction={direction}
+                rank={i + 1}
+              />
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </div>
   )
