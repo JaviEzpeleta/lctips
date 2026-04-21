@@ -6,6 +6,7 @@ import toast from "react-hot-toast"
 
 const PAGES_PER_BURST = 5
 const FETCH_TIMEOUT_MS = 30_000
+const AUTO_CONTINUE_DELAY_MS = 1500
 
 type PageResult =
   | { kind: "ok"; page: number; transfers: DetailTransfer[]; hasMore: boolean; profile?: any }
@@ -239,6 +240,30 @@ export function useProgressiveTransfers(handle: string) {
     setAutoLoadRemaining(PAGES_PER_BURST)
     runBurst(currentPage + 1, controller)
   }, [isDone, isLoadingPage, currentPage, runBurst])
+
+  // Auto-continue: once a burst settles (not done, not loading, not already
+  // auto-loading, profile exists), schedule the next burst after a short
+  // breathing pause so the UI can render what just streamed in.
+  useEffect(() => {
+    if (isDone || isLoadingPage || profileNotFound) return
+    if (autoLoadRemaining > 0) return
+    if (currentPage === 0) return // initial burst hasn't landed yet
+
+    console.log(
+      `⏳ [transfers] Auto-continue: next burst in ${AUTO_CONTINUE_DELAY_MS}ms (from page ${currentPage})`
+    )
+    const timer = setTimeout(() => {
+      loadMorePages()
+    }, AUTO_CONTINUE_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [
+    isDone,
+    isLoadingPage,
+    profileNotFound,
+    autoLoadRemaining,
+    currentPage,
+    loadMorePages,
+  ])
 
   // Cleanup on unmount
   useEffect(() => {
