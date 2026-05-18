@@ -590,7 +590,7 @@ export const ThankYouVideo = ({
             visuals only; <Audio> must live in the plain tree to be mixed
             into the rendered/playing soundtrack. ── */}
       <Audio
-        src={staticFile("thank-you/music.wav")}
+        src={staticFile("music/ty4tipinme.mp3")}
         volume={(f) =>
           interpolate(
             f,
