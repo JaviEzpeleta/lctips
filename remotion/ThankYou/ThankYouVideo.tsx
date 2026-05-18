@@ -329,7 +329,6 @@ const PersonScene = ({ entry }: { entry: ThankYouRankingEntry }) => {
   const numPulse = countT < 1 ? 1 + Math.sin(frame / 2.2) * 0.035 : 1
 
   const avatarSize = isTop ? 500 : 430
-  const accent = isTop ? "#c026d3" : "#d6336c"
 
   // Shrink-to-fit the amount so "$X / GHO" never overflows the right column,
   // no matter how big the total is. Sized from the final value (stable).
@@ -429,19 +428,6 @@ const PersonScene = ({ entry }: { entry: ThankYouRankingEntry }) => {
           transform: `translateX(${(1 - colIn) * 70}px)`,
         }}
       >
-        <div
-          style={{
-            fontFamily: HAND,
-            fontSize: 42,
-            color: accent,
-            opacity: 0.9,
-            marginBottom: 6,
-            transform: `rotate(${-wiggle * 0.5}deg)`,
-          }}
-        >
-          {isTop ? "sending alllll my love to ♡" : "big squishy thanks to ♡"}
-        </div>
-
         <div
           style={{
             fontFamily: ROUND,
