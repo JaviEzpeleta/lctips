@@ -1,8 +1,9 @@
 import type { ThankYouRankingEntry } from "@/lib/thankYouRanking"
 
 export const FPS = 30
-export const WIDTH = 1080
-export const HEIGHT = 1920
+// 4:3 landscape
+export const WIDTH = 1440
+export const HEIGHT = 1080
 
 export const INTRO_FRAMES = 78
 export const PER_PERSON_FRAMES = 96
