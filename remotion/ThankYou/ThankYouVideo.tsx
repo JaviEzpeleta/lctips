@@ -222,104 +222,179 @@ const PersonScene = ({ entry }: { entry: ThankYouRankingEntry }) => {
     fps,
     config: { damping: 10, mass: 0.7 },
   })
+  const colIn = spring({
+    frame: frame - 6,
+    fps,
+    config: { damping: 14, mass: 0.9 },
+  })
   const countT = interpolate(frame, [16, 46], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   })
   const eased = 1 - Math.pow(1 - countT, 3)
   const shown = entry.total * eased
-  const msgIn = interpolate(frame, [50, 66], [0, 1], {
+  const msgIn = interpolate(frame, [52, 70], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   })
-  const float = Math.sin(frame / 16) * 8
+  const float = Math.sin(frame / 16) * 10
+
+  const avatarSize = isTop ? 560 : 480
+  const accent = isTop ? "#c026d3" : "#d6336c"
 
   return (
     <AbsoluteFill
       style={{
-        justifyContent: "center",
+        flexDirection: "row",
         alignItems: "center",
-        textAlign: "center",
-        padding: 70,
+        padding: "0 110px",
+        gap: 90,
         fontFamily: FONT,
         opacity: enter,
       }}
     >
+      {/* ── Left column: avatar + rank ribbon ── */}
       <div
         style={{
-          fontSize: isTop ? 60 : 44,
-          fontWeight: 800,
-          color: "#c026d3",
-          background: "rgba(255,255,255,0.7)",
-          padding: isTop ? "10px 34px" : "8px 26px",
-          borderRadius: 999,
-          boxShadow: "0 10px 26px rgba(192,38,211,0.25)",
-          transform: `translateY(${(1 - enter) * -30}px)`,
+          flex: "0 0 auto",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          transform: `translateX(${(1 - colIn) * -70}px)`,
         }}
       >
-        {isTop ? "👑 #1 Top supporter" : `#${entry.rank}`}
+        {/* giant ghost rank numeral behind the avatar */}
+        <div
+          style={{
+            position: "absolute",
+            fontSize: 620,
+            fontWeight: 800,
+            color: "rgba(255,255,255,0.42)",
+            lineHeight: 1,
+            transform: "translateY(-30px)",
+            userSelect: "none",
+            pointerEvents: "none",
+          }}
+        >
+          {entry.rank}
+        </div>
+        <div
+          style={{
+            transform: `scale(${0.5 + avatarPop * 0.5}) translateY(${float}px)`,
+          }}
+        >
+          <Avatar
+            picture={entry.picture}
+            name={entry.name}
+            size={avatarSize}
+            ring={
+              isTop
+                ? "conic-gradient(from 0deg, #ffd56b, #ff8fc7, #b388ff, #ffd56b)"
+                : "linear-gradient(135deg, #ff9ecf, #b8a4ff)"
+            }
+          />
+        </div>
+        <div
+          style={{
+            marginTop: -28,
+            fontSize: isTop ? 52 : 42,
+            fontWeight: 800,
+            color: "#fff",
+            background: isTop
+              ? "linear-gradient(135deg, #f59e0b, #ec4899)"
+              : "linear-gradient(135deg, #ec4899, #a855f7)",
+            padding: isTop ? "12px 40px" : "10px 32px",
+            borderRadius: 999,
+            boxShadow: "0 14px 30px rgba(192,38,211,0.35)",
+            transform: `translateY(${(1 - enter) * 24}px)`,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {isTop ? "👑 #1 Top supporter" : `#${entry.rank} supporter`}
+        </div>
       </div>
 
+      {/* ── Right column: name + amount + message ── */}
       <div
         style={{
-          marginTop: 56,
-          transform: `scale(${0.5 + avatarPop * 0.5}) translateY(${float}px)`,
+          flex: "1 1 0",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          minWidth: 0,
+          transform: `translateX(${(1 - colIn) * 70}px)`,
         }}
       >
-        <Avatar
-          picture={entry.picture}
-          name={entry.name}
-          size={isTop ? 460 : 380}
-          ring={
-            isTop
-              ? "conic-gradient(from 0deg, #ffd56b, #ff8fc7, #b388ff, #ffd56b)"
-              : "linear-gradient(135deg, #ff9ecf, #b8a4ff)"
-          }
-        />
-      </div>
+        <div
+          style={{
+            fontSize: 30,
+            fontWeight: 700,
+            letterSpacing: 4,
+            textTransform: "uppercase",
+            color: accent,
+            opacity: 0.85,
+            marginBottom: 14,
+          }}
+        >
+          {isTop ? "Sending the most love to" : "Big thanks to"}
+        </div>
 
-      <div
-        style={{
-          marginTop: 44,
-          fontSize: isTop ? 84 : 72,
-          fontWeight: 800,
-          color: "#7a2d6b",
-          maxWidth: 900,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {entry.name}
-      </div>
+        <div
+          style={{
+            fontSize: isTop ? 96 : 84,
+            fontWeight: 800,
+            color: "#7a2d6b",
+            lineHeight: 1.05,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {entry.name}
+        </div>
 
-      <div
-        style={{
-          marginTop: 18,
-          fontSize: 96,
-          fontWeight: 800,
-          color: "#16a34a",
-          textShadow: "0 3px 0 #fff",
-        }}
-      >
-        {money(shown)}{" "}
-        <span style={{ fontSize: 52, color: "#15803d" }}>GHO</span>
-      </div>
-      <div style={{ fontSize: 34, color: "#9a6aa8", marginTop: 4 }}>
-        across {entry.count} tip{entry.count === 1 ? "" : "s"} 💝
-      </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 16,
+            marginTop: 28,
+          }}
+        >
+          <span
+            style={{
+              fontSize: isTop ? 168 : 144,
+              fontWeight: 800,
+              color: "#16a34a",
+              lineHeight: 1,
+              textShadow: "0 4px 0 #fff, 0 14px 30px rgba(22,163,74,0.18)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {money(shown)}
+          </span>
+          <span style={{ fontSize: 54, fontWeight: 800, color: "#15803d" }}>
+            GHO
+          </span>
+        </div>
 
-      <div
-        style={{
-          marginTop: 40,
-          fontSize: isTop ? 70 : 58,
-          fontWeight: 800,
-          color: "#d6336c",
-          opacity: msgIn,
-          transform: `scale(${0.8 + msgIn * 0.2})`,
-        }}
-      >
-        {messageForRank(entry.rank)}
+        <div style={{ fontSize: 36, color: "#9a6aa8", marginTop: 10 }}>
+          across {entry.count} tip{entry.count === 1 ? "" : "s"} 💝
+        </div>
+
+        <div
+          style={{
+            marginTop: 44,
+            fontSize: isTop ? 68 : 58,
+            fontWeight: 800,
+            color: "#d6336c",
+            opacity: msgIn,
+            transform: `translateY(${(1 - msgIn) * 16}px)`,
+          }}
+        >
+          {messageForRank(entry.rank)}
+        </div>
       </div>
     </AbsoluteFill>
   )
