@@ -5,7 +5,7 @@ import { DetailTransfer } from "@/lib/types"
 // page can validate uploads.
 export const THANK_YOU_JSON_KIND = "lctips-thank-you" as const
 export const THANK_YOU_JSON_VERSION = 1 as const
-export const THANK_YOU_TOP_N = 10
+export const THANK_YOU_TOP_N = 20
 
 export type ThankYouRankingEntry = {
   rank: number

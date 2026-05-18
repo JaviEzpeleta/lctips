@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 const PAGES_PER_BURST = 8
 const FETCH_TIMEOUT_MS = 30_000
 const AUTO_CONTINUE_DELAY_MS = 3000
-const MAX_TRANSFERS = 5000
+const MAX_TRANSFERS = 500
 
 type PageResult =
   | { kind: "ok"; page: number; transfers: DetailTransfer[]; hasMore: boolean; profile?: any }
