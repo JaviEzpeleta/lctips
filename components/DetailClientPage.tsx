@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import DefaultLoadingMini from "./DefaultLoadingMini"
+import Link from "next/link"
 import BlurryEntrance from "./BlurryEntrance"
 import DetailProfileHeader from "./detail/DetailProfileHeader"
 import TipCalendar from "./detail/TipCalendar"
@@ -14,6 +15,14 @@ import { ArrowUpRight, ArrowDownLeft } from "lucide-react"
 import { useProgressiveTransfers } from "@/hooks/useProgressiveTransfers"
 import { getCachedProfile, loadBatchProfiles } from "@/lib/profileCache"
 import NumberFlow from "@number-flow/react"
+import { Sparkles } from "lucide-react"
+import toast from "react-hot-toast"
+import {
+  buildReceivedGhoRanking,
+  THANK_YOU_JSON_KIND,
+  THANK_YOU_JSON_VERSION,
+  type ThankYouExport,
+} from "@/lib/thankYouRanking"
 
 const TOKEN_FILTERS = ["All", "GHO", "BONSAI", "POINTLESS"] as const
 type TokenFilter = (typeof TOKEN_FILTERS)[number]
@@ -203,6 +212,59 @@ const DetailClientPage = ({
     </button>
   )
 
+  const handleExportThankYou = () => {
+    const ranking = buildReceivedGhoRanking(allTransfers, getCachedProfile)
+    if (ranking.length === 0) {
+      toast("No GHO supporters to thank yet 💛")
+      return
+    }
+    const payload: ThankYouExport = {
+      kind: THANK_YOU_JSON_KIND,
+      version: THANK_YOU_JSON_VERSION,
+      generatedAt: new Date().toISOString(),
+      currency: "GHO",
+      recipient: {
+        handle,
+        name: profileData?.metadata?.name || handle,
+        picture: profileData?.metadata?.picture ?? null,
+      },
+      ranking,
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${handle}-thank-you.json`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+    toast.success(
+      `Exported top ${ranking.length} — open /thank-you to make the video 🎬`
+    )
+  }
+
+  const exportThankYouButton = isDone && (
+    <div className="mt-3 flex flex-col sm:flex-row gap-2">
+      <button
+        onClick={handleExportThankYou}
+        className="flex-1 py-2.5 text-sm font-semibold text-pink-200 hover:text-white bg-gradient-to-r from-pink-500/15 to-fuchsia-500/15 hover:from-pink-500/25 hover:to-fuchsia-500/25 ring-1 ring-pink-500/25 rounded-lg transition-colors flex items-center justify-center gap-2"
+      >
+        <Sparkles className="w-4 h-4" />
+        Export thank-you ranking (JSON)
+      </button>
+      <Link
+        href="/thank-you"
+        target="_blank"
+        className="sm:w-auto px-4 py-2.5 text-sm font-semibold text-fuchsia-200 hover:text-white bg-fuchsia-500/15 hover:bg-fuchsia-500/25 ring-1 ring-fuchsia-500/25 rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+      >
+        Open thank-you studio →
+      </Link>
+    </div>
+  )
+
   const tokenFilterTabs = (
     <div className="flex gap-1 mb-3 overflow-x-auto scrollbar-hide">
       {TOKEN_FILTERS.map((filter) => (
@@ -249,6 +311,8 @@ const DetailClientPage = ({
           />
         )}
       </BlurryEntrance>
+
+      {exportThankYouButton}
 
       {isInitialLoading ? (
         <DefaultLoadingMini />
