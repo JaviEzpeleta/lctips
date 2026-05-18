@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import {
   AbsoluteFill,
   Img,
@@ -8,12 +8,15 @@ import {
   continueRender,
   delayRender,
   interpolate,
+  isHtmlInCanvasSupported,
   spring,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion"
 import { Audio } from "@remotion/media"
+import { ShaderEffect } from "./vfx/ShaderEffect"
+import { valentineVHS } from "./vfx/valentineVHS"
 
 // ── Load the silliest, cutest fonts we can find (cursi mode) ──
 const fontHandle = delayRender("Loading cursi fonts 🎀")
@@ -566,17 +569,53 @@ const Outro = ({ recipientHandle }: { recipientHandle: string }) => {
   )
 }
 
+// "VHS de San Valentín" — tuned marked-but-cute. Tweak here to taste.
+const VFX = {
+  chroma: 1.1,
+  scan: 0.55,
+  grain: 0.7,
+  dots: 0.36,
+  dotSize: 7,
+  curve: 0.1,
+  tint: 0.55,
+}
+
+// Wraps the visuals in the Valentine-VHS shader. Falls back to a raw
+// render when HtmlInCanvas isn't available (some browsers / the web
+// renderer) so the Player and the export never crash — they just lose
+// the filter instead. The mount gate keeps SSR == first client paint.
+const Shaded = ({ children }: { children: ReactNode }) => {
+  const { width, height } = useVideoConfig()
+  const [shaded, setShaded] = useState(false)
+  useEffect(() => {
+    setShaded(isHtmlInCanvasSupported())
+  }, [])
+  if (!shaded) return <>{children}</>
+  return (
+    <ShaderEffect
+      effect={valentineVHS}
+      params={VFX}
+      width={width}
+      height={height}
+    >
+      {children}
+    </ShaderEffect>
+  )
+}
+
 export const ThankYouVideo = ({
   recipientHandle,
   ranking,
 }: ThankYouVideoProps) => {
   const total = getThankYouDuration(ranking.length)
   const musicFade = 18
+  const outroFrom = INTRO_FRAMES + ranking.length * PER_PERSON_FRAMES
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#ffd6e8" }}>
-      <AnimatedBackground />
-
+      {/* ── Audio track — kept OUTSIDE the shader. HtmlInCanvas captures
+            visuals only; <Audio> must live in the plain tree to be mixed
+            into the rendered/playing soundtrack. ── */}
       <Audio
         src={staticFile("thank-you/music.wav")}
         volume={(f) =>
@@ -597,36 +636,28 @@ export const ThankYouVideo = ({
         <Sequence from={20}>
           <Audio src={staticFile("thank-you/kiss.wav")} volume={0.85} />
         </Sequence>
-        <Intro recipientHandle={recipientHandle} />
       </Sequence>
 
-      {ranking.map((entry, i) => {
-        const from = INTRO_FRAMES + i * PER_PERSON_FRAMES
-        return (
-          <Sequence
-            key={entry.address}
-            from={from}
-            durationInFrames={PER_PERSON_FRAMES}
-          >
-            <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.6} />
-            <Sequence from={6}>
-              <Audio src={staticFile("thank-you/twinkle.wav")} volume={0.6} />
-            </Sequence>
-            <Sequence from={16}>
-              <Audio src={staticFile("thank-you/pop.wav")} volume={0.85} />
-            </Sequence>
-            <Sequence from={52}>
-              <Audio src={staticFile("thank-you/kiss.wav")} volume={0.8} />
-            </Sequence>
-            <PersonScene entry={entry} />
+      {ranking.map((entry, i) => (
+        <Sequence
+          key={`audio-${entry.address}`}
+          from={INTRO_FRAMES + i * PER_PERSON_FRAMES}
+          durationInFrames={PER_PERSON_FRAMES}
+        >
+          <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.6} />
+          <Sequence from={6}>
+            <Audio src={staticFile("thank-you/twinkle.wav")} volume={0.6} />
           </Sequence>
-        )
-      })}
+          <Sequence from={16}>
+            <Audio src={staticFile("thank-you/pop.wav")} volume={0.85} />
+          </Sequence>
+          <Sequence from={52}>
+            <Audio src={staticFile("thank-you/kiss.wav")} volume={0.8} />
+          </Sequence>
+        </Sequence>
+      ))}
 
-      <Sequence
-        from={INTRO_FRAMES + ranking.length * PER_PERSON_FRAMES}
-        durationInFrames={OUTRO_FRAMES}
-      >
+      <Sequence from={outroFrom} durationInFrames={OUTRO_FRAMES}>
         <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.7} />
         <Sequence from={4}>
           <Audio src={staticFile("thank-you/twinkle.wav")} volume={0.8} />
@@ -634,8 +665,32 @@ export const ThankYouVideo = ({
         <Sequence from={22}>
           <Audio src={staticFile("thank-you/kiss.wav")} volume={0.9} />
         </Sequence>
-        <Outro recipientHandle={recipientHandle} />
       </Sequence>
+
+      {/* ── Visuals — wrapped in the Valentine-VHS shader ── */}
+      <Shaded>
+        <AbsoluteFill style={{ backgroundColor: "#ffd6e8" }}>
+          <AnimatedBackground />
+
+          <Sequence durationInFrames={INTRO_FRAMES}>
+            <Intro recipientHandle={recipientHandle} />
+          </Sequence>
+
+          {ranking.map((entry, i) => (
+            <Sequence
+              key={entry.address}
+              from={INTRO_FRAMES + i * PER_PERSON_FRAMES}
+              durationInFrames={PER_PERSON_FRAMES}
+            >
+              <PersonScene entry={entry} />
+            </Sequence>
+          ))}
+
+          <Sequence from={outroFrom} durationInFrames={OUTRO_FRAMES}>
+            <Outro recipientHandle={recipientHandle} />
+          </Sequence>
+        </AbsoluteFill>
+      </Shaded>
     </AbsoluteFill>
   )
 }
