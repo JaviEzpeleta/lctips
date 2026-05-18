@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import DefaultLoadingMini from "./DefaultLoadingMini"
+import Link from "next/link"
 import BlurryEntrance from "./BlurryEntrance"
 import DetailProfileHeader from "./detail/DetailProfileHeader"
 import TipCalendar from "./detail/TipCalendar"
@@ -246,13 +247,22 @@ const DetailClientPage = ({
   }
 
   const exportThankYouButton = isDone && (
-    <button
-      onClick={handleExportThankYou}
-      className="w-full mt-3 py-2.5 text-sm font-semibold text-pink-200 hover:text-white bg-gradient-to-r from-pink-500/15 to-fuchsia-500/15 hover:from-pink-500/25 hover:to-fuchsia-500/25 ring-1 ring-pink-500/25 rounded-lg transition-colors flex items-center justify-center gap-2"
-    >
-      <Sparkles className="w-4 h-4" />
-      Export thank-you ranking (JSON)
-    </button>
+    <div className="mt-3 flex flex-col sm:flex-row gap-2">
+      <button
+        onClick={handleExportThankYou}
+        className="flex-1 py-2.5 text-sm font-semibold text-pink-200 hover:text-white bg-gradient-to-r from-pink-500/15 to-fuchsia-500/15 hover:from-pink-500/25 hover:to-fuchsia-500/25 ring-1 ring-pink-500/25 rounded-lg transition-colors flex items-center justify-center gap-2"
+      >
+        <Sparkles className="w-4 h-4" />
+        Export thank-you ranking (JSON)
+      </button>
+      <Link
+        href="/thank-you"
+        target="_blank"
+        className="sm:w-auto px-4 py-2.5 text-sm font-semibold text-fuchsia-200 hover:text-white bg-fuchsia-500/15 hover:bg-fuchsia-500/25 ring-1 ring-fuchsia-500/25 rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+      >
+        Open thank-you studio →
+      </Link>
+    </div>
   )
 
   const tokenFilterTabs = (
@@ -301,6 +311,8 @@ const DetailClientPage = ({
           />
         )}
       </BlurryEntrance>
+
+      {exportThankYouButton}
 
       {isInitialLoading ? (
         <DefaultLoadingMini />
@@ -506,7 +518,6 @@ const DetailClientPage = ({
 
             {errorBanner}
             {loadMorePagesButton}
-            {exportThankYouButton}
           </div>
 
           {/* ── XL 3-Column Dashboard layout ── */}
@@ -704,7 +715,6 @@ const DetailClientPage = ({
             {/* Load more pages button below XL columns */}
             {errorBanner}
             {loadMorePagesButton}
-            {exportThankYouButton}
           </div>
         </>
       )}
