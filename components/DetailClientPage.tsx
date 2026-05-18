@@ -15,7 +15,7 @@ import { ArrowUpRight, ArrowDownLeft } from "lucide-react"
 import { useProgressiveTransfers } from "@/hooks/useProgressiveTransfers"
 import { getCachedProfile, loadBatchProfiles } from "@/lib/profileCache"
 import NumberFlow from "@number-flow/react"
-import { Sparkles } from "lucide-react"
+import { Film, Loader2, Download } from "lucide-react"
 import toast from "react-hot-toast"
 import {
   buildReceivedGhoRanking,
@@ -23,6 +23,7 @@ import {
   THANK_YOU_JSON_VERSION,
   type ThankYouExport,
 } from "@/lib/thankYouRanking"
+import { useThankYouRender } from "@/hooks/useThankYouRender"
 
 const TOKEN_FILTERS = ["All", "GHO", "BONSAI", "POINTLESS"] as const
 type TokenFilter = (typeof TOKEN_FILTERS)[number]
@@ -50,6 +51,8 @@ const DetailClientPage = ({
     profileNotFound: progressiveProfileNotFound,
     loadError,
   } = useProgressiveTransfers(handle)
+
+  const { state: renderState, render: runRender } = useThankYouRender()
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [currentMonth, setCurrentMonth] = useState(() => new Date())
@@ -212,13 +215,13 @@ const DetailClientPage = ({
     </button>
   )
 
-  const handleExportThankYou = () => {
+  const buildThankYouPayload = (): ThankYouExport | null => {
     const ranking = buildReceivedGhoRanking(allTransfers, getCachedProfile)
     if (ranking.length === 0) {
       toast("No GHO supporters to thank yet 💛")
-      return
+      return null
     }
-    const payload: ThankYouExport = {
+    return {
       kind: THANK_YOU_JSON_KIND,
       version: THANK_YOU_JSON_VERSION,
       generatedAt: new Date().toISOString(),
@@ -230,6 +233,16 @@ const DetailClientPage = ({
       },
       ranking,
     }
+  }
+
+  const handleRenderThankYou = () => {
+    const payload = buildThankYouPayload()
+    if (payload) runRender(payload)
+  }
+
+  const handleExportThankYou = () => {
+    const payload = buildThankYouPayload()
+    if (!payload) return
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
     })
@@ -242,26 +255,113 @@ const DetailClientPage = ({
     a.remove()
     URL.revokeObjectURL(url)
     toast.success(
-      `Exported top ${ranking.length} — open /thank-you to make the video 🎬`
+      `Exported top ${payload.ranking.length} — open /thank-you to make the video 🎬`
     )
   }
 
+  const isRendering =
+    renderState.status === "checking" || renderState.status === "rendering"
+
   const exportThankYouButton = isDone && (
-    <div className="mt-3 flex flex-col sm:flex-row gap-2">
-      <button
-        onClick={handleExportThankYou}
-        className="flex-1 py-2.5 text-sm font-semibold text-pink-200 hover:text-white bg-gradient-to-r from-pink-500/15 to-fuchsia-500/15 hover:from-pink-500/25 hover:to-fuchsia-500/25 ring-1 ring-pink-500/25 rounded-lg transition-colors flex items-center justify-center gap-2"
-      >
-        <Sparkles className="w-4 h-4" />
-        Export thank-you ranking (JSON)
-      </button>
-      <Link
-        href="/thank-you"
-        target="_blank"
-        className="sm:w-auto px-4 py-2.5 text-sm font-semibold text-fuchsia-200 hover:text-white bg-fuchsia-500/15 hover:bg-fuchsia-500/25 ring-1 ring-fuchsia-500/25 rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
-      >
-        Open thank-you studio →
-      </Link>
+    <div className="mt-3">
+      {isRendering ? (
+        <div className="rounded-lg ring-1 ring-pink-500/25 bg-gradient-to-r from-pink-500/10 to-fuchsia-500/10 px-4 py-3">
+          <div className="flex items-center justify-between text-sm font-semibold text-pink-200 mb-2">
+            <span className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {renderState.status === "checking"
+                ? "Preparing your video…"
+                : "Rendering your thank-you video…"}
+            </span>
+            <span className="tabular-nums">
+              {renderState.status === "rendering"
+                ? `${Math.round(renderState.progress * 100)}%`
+                : ""}
+            </span>
+          </div>
+          <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-pink-500 to-fuchsia-500 transition-all duration-300"
+              style={{
+                width:
+                  renderState.status === "rendering"
+                    ? `${Math.max(3, Math.round(renderState.progress * 100))}%`
+                    : "8%",
+              }}
+            />
+          </div>
+          <p className="text-[11px] text-pink-300/70 mt-2">
+            Rendering happens in your browser — keep this tab open. It downloads
+            automatically when it&apos;s done. 🎬
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            onClick={handleRenderThankYou}
+            className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-pink-500 to-fuchsia-500 hover:opacity-90 rounded-lg transition-opacity flex items-center justify-center gap-2"
+          >
+            {renderState.status === "done" ? (
+              <>
+                <Film className="w-4 h-4" />
+                Render again
+              </>
+            ) : (
+              <>
+                <Film className="w-4 h-4" />
+                Render thank-you video
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleExportThankYou}
+            title="Export the ranking as JSON — use this on Safari/mobile or to render later in the studio"
+            className="sm:w-auto px-4 py-2.5 text-sm font-semibold text-pink-200/80 hover:text-white bg-pink-500/10 hover:bg-pink-500/20 ring-1 ring-pink-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            <Download className="w-4 h-4" />
+            JSON
+          </button>
+        </div>
+      )}
+
+      {renderState.status === "error" && (
+        <div className="mt-2 text-sm text-amber-300 bg-amber-500/10 ring-1 ring-amber-500/25 rounded-lg px-4 py-3">
+          {renderState.message}
+          <div className="text-xs text-amber-300/70 mt-1">
+            Client-side rendering needs WebCodecs (best on desktop Chrome or
+            Edge). On Safari/mobile, use the{" "}
+            <button
+              onClick={handleExportThankYou}
+              className="underline hover:text-amber-200"
+            >
+              JSON export
+            </button>{" "}
+            and render it from the{" "}
+            <Link
+              href="/thank-you"
+              target="_blank"
+              className="underline hover:text-amber-200"
+            >
+              thank-you studio
+            </Link>
+            .
+          </div>
+        </div>
+      )}
+
+      {renderState.status === "done" && (
+        <div className="mt-2 text-sm text-emerald-300">
+          Done! If the download didn&apos;t start,{" "}
+          <a
+            href={renderState.url}
+            download={`${handle}-thank-you.mp4`}
+            className="underline"
+          >
+            click here
+          </a>
+          .
+        </div>
+      )}
     </div>
   )
 
