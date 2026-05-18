@@ -13,6 +13,8 @@ export type ThankYouVideoProps = {
   recipientHandle: string
   recipientName: string
   ranking: ThankYouRankingEntry[]
+  /** "VHS de San Valentín" retro grade. Defaults to on. */
+  vhs?: boolean
 }
 
 export const getThankYouDuration = (rankingLength: number) =>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type ReactNode } from "react"
+import { useState } from "react"
 import {
   AbsoluteFill,
   Img,
@@ -8,15 +8,13 @@ import {
   continueRender,
   delayRender,
   interpolate,
-  isHtmlInCanvasSupported,
   spring,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion"
 import { Audio } from "@remotion/media"
-import { ShaderEffect } from "./vfx/ShaderEffect"
-import { valentineVHS } from "./vfx/valentineVHS"
+import { VhsLook } from "./VhsLook"
 
 // ── Load the silliest, cutest fonts we can find (cursi mode) ──
 const fontHandle = delayRender("Loading cursi fonts 🎀")
@@ -43,6 +41,7 @@ import {
   OUTRO_FRAMES,
   PER_PERSON_FRAMES,
   ThankYouVideoProps,
+  WIDTH,
   getThankYouDuration,
   messageForRank,
 } from "./constants"
@@ -59,6 +58,17 @@ const money = (n: number) =>
   n >= 10000
     ? `$${(n / 1000).toFixed(1)}k`
     : `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+// ── Scene layout (kept in sync with PersonScene styles) ──
+const SCENE_PAD_X = 90
+const SCENE_GAP = 70
+
+// Rough per-glyph em widths for Baloo 2 800 — enough to shrink-to-fit so the
+// amount + "GHO" never spill past the right column for any tip total.
+const emFor = (ch: string) =>
+  ch === "." ? 0.3 : ch === "," ? 0.32 : ch === "k" ? 0.56 : 0.6
+const textEm = (s: string) =>
+  [...s].reduce((w, ch) => w + emFor(ch), 0)
 
 const hashHue = (s: string) => {
   let h = 0
@@ -318,16 +328,25 @@ const PersonScene = ({ entry }: { entry: ThankYouRankingEntry }) => {
   const heartBeat = 1 + Math.sin(frame / 5) * 0.05
   const numPulse = countT < 1 ? 1 + Math.sin(frame / 2.2) * 0.035 : 1
 
-  const avatarSize = isTop ? 560 : 480
+  const avatarSize = isTop ? 500 : 430
   const accent = isTop ? "#c026d3" : "#d6336c"
+
+  // Shrink-to-fit the amount so "$X / GHO" never overflows the right column,
+  // no matter how big the total is. Sized from the final value (stable).
+  const amountFont = isTop ? 176 : 150
+  const ghoFont = 56
+  const rightWidth = WIDTH - 2 * SCENE_PAD_X - SCENE_GAP - avatarSize
+  const amountWidth =
+    textEm(money(entry.total)) * amountFont + 18 + 4.4 * ghoFont
+  const fit = Math.min(1, (rightWidth * 0.97) / amountWidth)
 
   return (
     <AbsoluteFill
       style={{
         flexDirection: "row",
         alignItems: "center",
-        padding: "0 110px",
-        gap: 90,
+        padding: `0 ${SCENE_PAD_X}px`,
+        gap: SCENE_GAP,
         fontFamily: ROUND,
         opacity: enter,
       }}
@@ -450,14 +469,15 @@ const PersonScene = ({ entry }: { entry: ThankYouRankingEntry }) => {
             alignItems: "baseline",
             gap: 18,
             marginTop: 26,
-            transform: `scale(${numPulse})`,
+            whiteSpace: "nowrap",
+            transform: `scale(${numPulse * fit})`,
             transformOrigin: "left center",
           }}
         >
           <span
             style={{
               fontFamily: ROUND,
-              fontSize: isTop ? 176 : 150,
+              fontSize: amountFont,
               fontWeight: 800,
               color: "#16a34a",
               lineHeight: 1,
@@ -471,7 +491,7 @@ const PersonScene = ({ entry }: { entry: ThankYouRankingEntry }) => {
           <span
             style={{
               fontFamily: ROUND,
-              fontSize: 56,
+              fontSize: ghoFont,
               fontWeight: 800,
               color: "#15803d",
             }}
@@ -569,43 +589,10 @@ const Outro = ({ recipientHandle }: { recipientHandle: string }) => {
   )
 }
 
-// "VHS de San Valentín" — tuned marked-but-cute. Tweak here to taste.
-const VFX = {
-  chroma: 1.1,
-  scan: 0.55,
-  grain: 0.7,
-  dots: 0.36,
-  dotSize: 7,
-  curve: 0.1,
-  tint: 0.55,
-}
-
-// Wraps the visuals in the Valentine-VHS shader. Falls back to a raw
-// render when HtmlInCanvas isn't available (some browsers / the web
-// renderer) so the Player and the export never crash — they just lose
-// the filter instead. The mount gate keeps SSR == first client paint.
-const Shaded = ({ children }: { children: ReactNode }) => {
-  const { width, height } = useVideoConfig()
-  const [shaded, setShaded] = useState(false)
-  useEffect(() => {
-    setShaded(isHtmlInCanvasSupported())
-  }, [])
-  if (!shaded) return <>{children}</>
-  return (
-    <ShaderEffect
-      effect={valentineVHS}
-      params={VFX}
-      width={width}
-      height={height}
-    >
-      {children}
-    </ShaderEffect>
-  )
-}
-
 export const ThankYouVideo = ({
   recipientHandle,
   ranking,
+  vhs = true,
 }: ThankYouVideoProps) => {
   const total = getThankYouDuration(ranking.length)
   const musicFade = 18
@@ -667,8 +654,8 @@ export const ThankYouVideo = ({
         </Sequence>
       </Sequence>
 
-      {/* ── Visuals — wrapped in the Valentine-VHS shader ── */}
-      <Shaded>
+      {/* ── Visuals — wrapped in the Valentine-VHS look ── */}
+      <VhsLook enabled={vhs}>
         <AbsoluteFill style={{ backgroundColor: "#ffd6e8" }}>
           <AnimatedBackground />
 
@@ -690,7 +677,7 @@ export const ThankYouVideo = ({
             <Outro recipientHandle={recipientHandle} />
           </Sequence>
         </AbsoluteFill>
-      </Shaded>
+      </VhsLook>
     </AbsoluteFill>
   )
 }
