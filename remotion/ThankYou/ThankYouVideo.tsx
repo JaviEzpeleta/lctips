@@ -36,14 +36,15 @@ if (typeof document !== "undefined") {
   continueRender(fontHandle)
 }
 import {
-  FPS,
-  INTRO_FRAMES,
-  OUTRO_FRAMES,
-  PER_PERSON_FRAMES,
   ThankYouVideoProps,
   WIDTH,
+  beatFrame,
+  beatOffset,
   getThankYouDuration,
+  introEndFrame,
   messageForRank,
+  outroStartFrame,
+  personStartFrame,
 } from "./constants"
 import type { ThankYouRankingEntry } from "@/lib/thankYouRanking"
 
@@ -313,13 +314,15 @@ const PersonScene = ({ entry }: { entry: ThankYouRankingEntry }) => {
     fps,
     config: { damping: 14, mass: 0.9 },
   })
-  const countT = interpolate(frame, [16, 46], [0, 1], {
+  // Number counts up across beats 1→3 (pop SFX punches the value on beat 2);
+  // the message slides fully in by beat 5, exactly when the kiss SFX hits.
+  const countT = interpolate(frame, [beatOffset(1), beatOffset(3)], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   })
   const eased = 1 - Math.pow(1 - countT, 3)
   const shown = entry.total * eased
-  const msgIn = interpolate(frame, [52, 70], [0, 1], {
+  const msgIn = interpolate(frame, [beatOffset(4), beatOffset(5)], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   })
@@ -582,7 +585,13 @@ export const ThankYouVideo = ({
 }: ThankYouVideoProps) => {
   const total = getThankYouDuration(ranking.length)
   const musicFade = 18
-  const outroFrom = INTRO_FRAMES + ranking.length * PER_PERSON_FRAMES
+  // Every boundary is a real beat on the 127.84 BPM grid, derived
+  // cumulatively from beatFrame() so it never drifts off the music.
+  const introEnd = introEndFrame()
+  const outroFrom = outroStartFrame(ranking.length)
+  const sceneStart = (i: number) => personStartFrame(i)
+  const sceneLen = (i: number) =>
+    (i + 1 < ranking.length ? sceneStart(i + 1) : outroFrom) - sceneStart(i)
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#ffd6e8" }}>
@@ -601,12 +610,14 @@ export const ThankYouVideo = ({
         }
       />
 
-      <Sequence durationInFrames={INTRO_FRAMES}>
+      {/* Intro starts at frame 0; the grid's first downbeat is frame 14, so
+          the title spring and twinkle land together on beat 1. */}
+      <Sequence durationInFrames={introEnd}>
         <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.7} />
-        <Sequence from={6}>
+        <Sequence from={beatFrame(0)}>
           <Audio src={staticFile("thank-you/twinkle.wav")} volume={0.75} />
         </Sequence>
-        <Sequence from={20}>
+        <Sequence from={beatFrame(2)}>
           <Audio src={staticFile("thank-you/kiss.wav")} volume={0.85} />
         </Sequence>
       </Sequence>
@@ -614,28 +625,32 @@ export const ThankYouVideo = ({
       {ranking.map((entry, i) => (
         <Sequence
           key={`audio-${entry.address}`}
-          from={INTRO_FRAMES + i * PER_PERSON_FRAMES}
-          durationInFrames={PER_PERSON_FRAMES}
+          from={sceneStart(i)}
+          durationInFrames={sceneLen(i)}
         >
+          {/* scene begins exactly on a beat → SFX snap to beats 0/1/2/5 */}
           <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.6} />
-          <Sequence from={6}>
+          <Sequence from={beatOffset(1)}>
             <Audio src={staticFile("thank-you/twinkle.wav")} volume={0.6} />
           </Sequence>
-          <Sequence from={16}>
+          <Sequence from={beatOffset(2)}>
             <Audio src={staticFile("thank-you/pop.wav")} volume={0.85} />
           </Sequence>
-          <Sequence from={52}>
+          <Sequence from={beatOffset(5)}>
             <Audio src={staticFile("thank-you/kiss.wav")} volume={0.8} />
           </Sequence>
         </Sequence>
       ))}
 
-      <Sequence from={outroFrom} durationInFrames={OUTRO_FRAMES}>
+      <Sequence
+        from={outroFrom}
+        durationInFrames={total - outroFrom}
+      >
         <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.7} />
-        <Sequence from={4}>
+        <Sequence from={beatOffset(1)}>
           <Audio src={staticFile("thank-you/twinkle.wav")} volume={0.8} />
         </Sequence>
-        <Sequence from={22}>
+        <Sequence from={beatOffset(2)}>
           <Audio src={staticFile("thank-you/kiss.wav")} volume={0.9} />
         </Sequence>
       </Sequence>
@@ -645,21 +660,21 @@ export const ThankYouVideo = ({
         <AbsoluteFill style={{ backgroundColor: "#ffd6e8" }}>
           <AnimatedBackground />
 
-          <Sequence durationInFrames={INTRO_FRAMES}>
+          <Sequence durationInFrames={introEnd}>
             <Intro recipientHandle={recipientHandle} />
           </Sequence>
 
           {ranking.map((entry, i) => (
             <Sequence
               key={entry.address}
-              from={INTRO_FRAMES + i * PER_PERSON_FRAMES}
-              durationInFrames={PER_PERSON_FRAMES}
+              from={sceneStart(i)}
+              durationInFrames={sceneLen(i)}
             >
               <PersonScene entry={entry} />
             </Sequence>
           ))}
 
-          <Sequence from={outroFrom} durationInFrames={OUTRO_FRAMES}>
+          <Sequence from={outroFrom} durationInFrames={total - outroFrom}>
             <Outro recipientHandle={recipientHandle} />
           </Sequence>
         </AbsoluteFill>
