@@ -1200,44 +1200,44 @@ export const ThankYouVideo = ({
             <SuspenseAudio durationInFrames={seg.durationInFrames} />
           ) : seg.kind === "top1" ? (
             <>
-              {/* the BOOM — layered, loud, celebratory */}
-              <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.9} />
-              <Audio src={staticFile("thank-you/kiss.wav")} volume={0.9} />
+              {/* the BOOM — layered, celebratory (SFX at 12% of old mix) */}
+              <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.108} />
+              <Audio src={staticFile("thank-you/kiss.wav")} volume={0.108} />
               <Sequence from={beatOffset(1)}>
-                <Audio src={staticFile("thank-you/twinkle.wav")} volume={0.85} />
+                <Audio src={staticFile("thank-you/twinkle.wav")} volume={0.102} />
               </Sequence>
               <Sequence from={beatOffset(2)}>
-                <Audio src={staticFile("thank-you/pop.wav")} volume={0.9} />
+                <Audio src={staticFile("thank-you/pop.wav")} volume={0.108} />
               </Sequence>
               <Sequence from={beatOffset(6)}>
-                <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.7} />
+                <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.084} />
               </Sequence>
               <Sequence from={beatOffset(9)}>
-                <Audio src={staticFile("thank-you/kiss.wav")} volume={0.85} />
+                <Audio src={staticFile("thank-you/kiss.wav")} volume={0.102} />
               </Sequence>
             </>
           ) : seg.kind === "card" ? (
             <>
-              <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.75} />
+              <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.09} />
               <Sequence from={beatOffset(1)}>
-                <Audio src={staticFile("thank-you/twinkle.wav")} volume={0.8} />
+                <Audio src={staticFile("thank-you/twinkle.wav")} volume={0.096} />
               </Sequence>
             </>
           ) : (
             <>
               {/* intro / pair / person / outro */}
-              <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.65} />
+              <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.078} />
               <Sequence from={beatOffset(1)}>
-                <Audio src={staticFile("thank-you/twinkle.wav")} volume={0.65} />
+                <Audio src={staticFile("thank-you/twinkle.wav")} volume={0.078} />
               </Sequence>
               <Sequence from={beatOffset(2)}>
-                <Audio src={staticFile("thank-you/pop.wav")} volume={0.85} />
+                <Audio src={staticFile("thank-you/pop.wav")} volume={0.102} />
               </Sequence>
               {(seg.kind === "person" ||
                 seg.kind === "intro" ||
                 seg.kind === "outro") && (
                 <Sequence from={beatOffset(5)}>
-                  <Audio src={staticFile("thank-you/kiss.wav")} volume={0.8} />
+                  <Audio src={staticFile("thank-you/kiss.wav")} volume={0.096} />
                 </Sequence>
               )}
             </>
@@ -1313,12 +1313,12 @@ const SuspenseAudio = ({
         <Sequence key={`dr-${i}`} from={h}>
           <Audio
             src={staticFile("thank-you/pop.wav")}
-            volume={0.45 + (i / hits.length) * 0.45}
+            volume={0.054 + (i / hits.length) * 0.054}
           />
         </Sequence>
       ))}
       <Sequence from={Math.max(0, durationInFrames - 4)}>
-        <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.85} />
+        <Audio src={staticFile("thank-you/sparkle.wav")} volume={0.102} />
       </Sequence>
     </>
   )
