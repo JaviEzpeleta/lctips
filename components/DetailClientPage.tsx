@@ -61,6 +61,8 @@ const DetailClientPage = ({
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE)
   const [visibleCountSent, setVisibleCountSent] = useState(ITEMS_PER_PAGE)
   const [visibleCountReceived, setVisibleCountReceived] = useState(ITEMS_PER_PAGE)
+  // Quick mode: render only the top 3 supporters for fast iteration.
+  const [quickMode, setQuickMode] = useState(false)
 
   // Prefer progressive profile once it arrives; otherwise use the
   // server-resolved initialProfile so the header renders immediately.
@@ -237,7 +239,12 @@ const DetailClientPage = ({
 
   const handleRenderThankYou = () => {
     const payload = buildThankYouPayload()
-    if (payload) runRender(payload)
+    if (!payload) return
+    if (quickMode) {
+      runRender({ ...payload, ranking: payload.ranking.slice(0, 3) })
+      return
+    }
+    runRender(payload)
   }
 
   const handleExportThankYou = () => {
@@ -296,7 +303,30 @@ const DetailClientPage = ({
           </p>
         </div>
       ) : (
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 items-stretch">
+          <button
+            type="button"
+            onClick={() => setQuickMode((v) => !v)}
+            title="Quick mode: render only the top 3 supporters so you can test fast"
+            className={`sm:w-auto px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap ring-1 transition-colors ${
+              quickMode
+                ? "bg-amber-500/20 text-amber-200 ring-amber-400/40"
+                : "bg-zinc-900/50 text-zinc-400 ring-zinc-700/40 hover:bg-zinc-800/50"
+            }`}
+          >
+            <span
+              className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                quickMode ? "bg-amber-400" : "bg-zinc-600"
+              }`}
+            >
+              <span
+                className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                  quickMode ? "translate-x-3.5" : "translate-x-0.5"
+                }`}
+              />
+            </span>
+            Quick mode
+          </button>
           <button
             onClick={handleRenderThankYou}
             className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-pink-500 to-fuchsia-500 hover:opacity-90 rounded-lg transition-opacity flex items-center justify-center gap-2"
@@ -309,7 +339,9 @@ const DetailClientPage = ({
             ) : (
               <>
                 <Film className="w-4 h-4" />
-                Render thank-you video
+                {quickMode
+                  ? "Render thank-you video (quick · top 3)"
+                  : "Render thank-you video"}
               </>
             )}
           </button>
