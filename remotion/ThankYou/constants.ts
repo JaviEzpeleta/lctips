@@ -11,7 +11,13 @@ export const HEIGHT = 1080
 // downbeat landing at ~frame 14. Every scene cut and SFX hit in this video is
 // snapped to this grid so the whole thing grooves to the track.
 export const BPM = 127.841
-export const BEAT = (60 / BPM) * FPS // ≈ 14.08 frames per beat
+// Pacing stretch: every scene + in-scene SFX offset is scaled by this, so the
+// whole video runs 15% slower / longer at a uniform rate. NOTE: this
+// intentionally decouples the cuts from the actual beats of ty4tipinme.mp3 —
+// the song plays at its real tempo, so hits no longer land on the grid. This
+// was an explicit pacing choice over staying beat-locked.
+export const PACING_STRETCH = 1.15
+export const BEAT = (60 / BPM) * FPS * PACING_STRETCH // ≈ 16.19 frames per beat
 export const GRID0 = 14 // frame of the first downbeat (phase anchor)
 
 // Frame of beat index `k` on the music grid, rounded to a real frame. Used
