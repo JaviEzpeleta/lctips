@@ -1,10 +1,10 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Player } from "@remotion/player"
 import toast from "react-hot-toast"
-import { ArrowLeft, Download, Film, Upload, Loader2 } from "lucide-react"
+import { ArrowLeft, Download, Film, Upload, Loader2, X } from "lucide-react"
 import { ThankYouVideo } from "@/remotion/ThankYou/ThankYouVideo"
 import {
   FPS,
@@ -16,6 +16,12 @@ import {
   isThankYouExport,
   type ThankYouExport,
 } from "@/lib/thankYouRanking"
+import {
+  listThankYouLibrary,
+  removeFromThankYouLibrary,
+  saveToThankYouLibrary,
+  type ThankYouLibraryEntry,
+} from "@/lib/thankYouLibrary"
 
 type RenderState =
   | { status: "idle" }
@@ -28,7 +34,21 @@ const ThankYouStudio = () => {
   const [data, setData] = useState<ThankYouExport | null>(null)
   const [render, setRender] = useState<RenderState>({ status: "idle" })
   const [dragging, setDragging] = useState(false)
+  const [library, setLibrary] = useState<ThankYouLibraryEntry[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Surface previously-uploaded JSONs (localStorage) so the user can resume
+  // without re-exporting. We only read on mount — it's a client component.
+  useEffect(() => {
+    setLibrary(listThankYouLibrary())
+  }, [])
+
+  const useEntry = useCallback((entry: ThankYouLibraryEntry) => {
+    setData(entry.data)
+    setRender({ status: "idle" })
+    setLibrary(saveToThankYouLibrary(entry.data))
+    toast.success(`Resumed @${entry.data.recipient.handle} 💛`)
+  }, [])
 
   const loadFile = useCallback((file: File) => {
     const reader = new FileReader()
@@ -45,6 +65,7 @@ const ThankYouStudio = () => {
         }
         setData(parsed)
         setRender({ status: "idle" })
+        setLibrary(saveToThankYouLibrary(parsed))
         toast.success(`Loaded ${parsed.ranking.length} supporters 💛`)
       } catch {
         toast.error("Could not parse that JSON file")
@@ -169,6 +190,58 @@ const ThankYouStudio = () => {
             }}
           />
         </label>
+      )}
+
+      {!data && library.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-sm font-semibold text-zinc-300 mb-1">
+            Resume a recent thank-you
+          </h2>
+          <p className="text-xs text-zinc-500 mb-3">
+            JSONs you uploaded before, kept on this device — no re-export needed.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {library.map((entry) => {
+              const r = entry.data.recipient
+              return (
+                <div
+                  key={r.handle}
+                  className="group relative flex items-center gap-3 rounded-xl ring-1 ring-zinc-800 bg-black/30 hover:ring-pink-500/50 transition-colors"
+                >
+                  <button
+                    onClick={() => useEntry(entry)}
+                    className="flex flex-1 items-center gap-3 p-3 text-left min-w-0"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={r.picture ?? ""}
+                      alt=""
+                      className="w-10 h-10 rounded-full object-cover bg-zinc-800 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-zinc-100 truncate">
+                        {r.name || r.handle}
+                      </div>
+                      <div className="text-xs text-zinc-500 truncate">
+                        @{r.handle} · top {entry.data.ranking.length} ·{" "}
+                        {new Date(entry.savedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() =>
+                      setLibrary(removeFromThankYouLibrary(r.handle))
+                    }
+                    aria-label={`Forget ${r.handle}`}
+                    className="absolute top-1.5 right-1.5 p-1 rounded-md text-zinc-600 hover:text-zinc-200 hover:bg-zinc-800 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       )}
 
       {data && inputProps && (
