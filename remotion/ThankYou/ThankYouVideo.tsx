@@ -179,24 +179,14 @@ const Avatar = ({
         width: size,
         height: size,
         borderRadius: "50%",
-        padding: 8,
-        background: ring,
-        boxShadow: "0 18px 50px rgba(214,120,180,0.45)",
+        overflow: "hidden",
+        background: `linear-gradient(135deg, hsl(${hue} 85% 80%), hsl(${(hue + 60) % 360} 85% 78%))`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: `0 0 0 5px ${ring}, 0 18px 50px rgba(214,120,180,0.45)`,
       }}
     >
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          borderRadius: "50%",
-          overflow: "hidden",
-          background: `linear-gradient(135deg, hsl(${hue} 85% 80%), hsl(${(hue + 60) % 360} 85% 78%))`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          border: "6px solid #fff",
-        }}
-      >
         {picture && !failed ? (
           <Img
             src={picture}
@@ -215,7 +205,6 @@ const Avatar = ({
             {name.trim().charAt(0).toUpperCase() || "♥"}
           </span>
         )}
-      </div>
     </div>
   )
 }
