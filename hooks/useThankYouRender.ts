@@ -20,6 +20,18 @@ export type RenderState =
  * dynamically imported inside `render()` so the heavy bundle only loads when
  * the user actually renders — keeps the profile page lean.
  */
+/** Little celebratory chime when the render hits 100%. Best-effort: autoplay
+ * may be blocked, but the render is user-initiated so it usually plays. */
+const playDoneChime = () => {
+  try {
+    const a = new Audio("/thank-you/twinkle.wav")
+    a.volume = 0.6
+    void a.play().catch(() => {})
+  } catch {
+    /* no-op */
+  }
+}
+
 export const useThankYouRender = () => {
   const [state, setState] = useState<RenderState>({ status: "idle" })
 
@@ -71,6 +83,7 @@ export const useThankYouRender = () => {
       const blob = await result.getBlob()
       const url = URL.createObjectURL(blob)
       setState({ status: "done", url })
+      playDoneChime()
       const a = document.createElement("a")
       a.href = url
       a.download = `${payload.recipient.handle}-thank-you.mp4`
