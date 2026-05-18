@@ -14,6 +14,14 @@ import { ArrowUpRight, ArrowDownLeft } from "lucide-react"
 import { useProgressiveTransfers } from "@/hooks/useProgressiveTransfers"
 import { getCachedProfile, loadBatchProfiles } from "@/lib/profileCache"
 import NumberFlow from "@number-flow/react"
+import { Sparkles } from "lucide-react"
+import toast from "react-hot-toast"
+import {
+  buildReceivedGhoRanking,
+  THANK_YOU_JSON_KIND,
+  THANK_YOU_JSON_VERSION,
+  type ThankYouExport,
+} from "@/lib/thankYouRanking"
 
 const TOKEN_FILTERS = ["All", "GHO", "BONSAI", "POINTLESS"] as const
 type TokenFilter = (typeof TOKEN_FILTERS)[number]
@@ -200,6 +208,50 @@ const DetailClientPage = ({
       className="w-full mt-4 py-2.5 text-sm text-indigo-300 hover:text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 ring-1 ring-indigo-500/20 rounded-lg transition-colors disabled:opacity-50"
     >
       {isLoadingPage ? "Loading…" : "Load more pages"}
+    </button>
+  )
+
+  const handleExportThankYou = () => {
+    const ranking = buildReceivedGhoRanking(allTransfers, getCachedProfile)
+    if (ranking.length === 0) {
+      toast("No GHO supporters to thank yet 💛")
+      return
+    }
+    const payload: ThankYouExport = {
+      kind: THANK_YOU_JSON_KIND,
+      version: THANK_YOU_JSON_VERSION,
+      generatedAt: new Date().toISOString(),
+      currency: "GHO",
+      recipient: {
+        handle,
+        name: profileData?.metadata?.name || handle,
+        picture: profileData?.metadata?.picture ?? null,
+      },
+      ranking,
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${handle}-thank-you.json`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+    toast.success(
+      `Exported top ${ranking.length} — open /thank-you to make the video 🎬`
+    )
+  }
+
+  const exportThankYouButton = isDone && (
+    <button
+      onClick={handleExportThankYou}
+      className="w-full mt-3 py-2.5 text-sm font-semibold text-pink-200 hover:text-white bg-gradient-to-r from-pink-500/15 to-fuchsia-500/15 hover:from-pink-500/25 hover:to-fuchsia-500/25 ring-1 ring-pink-500/25 rounded-lg transition-colors flex items-center justify-center gap-2"
+    >
+      <Sparkles className="w-4 h-4" />
+      Export thank-you ranking (JSON)
     </button>
   )
 
@@ -454,6 +506,7 @@ const DetailClientPage = ({
 
             {errorBanner}
             {loadMorePagesButton}
+            {exportThankYouButton}
           </div>
 
           {/* ── XL 3-Column Dashboard layout ── */}
@@ -651,6 +704,7 @@ const DetailClientPage = ({
             {/* Load more pages button below XL columns */}
             {errorBanner}
             {loadMorePagesButton}
+            {exportThankYouButton}
           </div>
         </>
       )}
