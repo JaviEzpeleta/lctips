@@ -22,17 +22,12 @@ import {
   saveToThankYouLibrary,
   type ThankYouLibraryEntry,
 } from "@/lib/thankYouLibrary"
-
-type RenderState =
-  | { status: "idle" }
-  | { status: "checking" }
-  | { status: "rendering"; progress: number }
-  | { status: "done"; url: string }
-  | { status: "error"; message: string }
+import { useThankYouRender } from "@/hooks/useThankYouRender"
 
 const ThankYouStudio = () => {
   const [data, setData] = useState<ThankYouExport | null>(null)
-  const [render, setRender] = useState<RenderState>({ status: "idle" })
+  const { state: render, render: runRender, reset: resetRender } =
+    useThankYouRender()
   const [dragging, setDragging] = useState(false)
   const [library, setLibrary] = useState<ThankYouLibraryEntry[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
@@ -43,12 +38,15 @@ const ThankYouStudio = () => {
     setLibrary(listThankYouLibrary())
   }, [])
 
-  const useEntry = useCallback((entry: ThankYouLibraryEntry) => {
-    setData(entry.data)
-    setRender({ status: "idle" })
-    setLibrary(saveToThankYouLibrary(entry.data))
-    toast.success(`Resumed @${entry.data.recipient.handle} 💛`)
-  }, [])
+  const useEntry = useCallback(
+    (entry: ThankYouLibraryEntry) => {
+      setData(entry.data)
+      resetRender()
+      setLibrary(saveToThankYouLibrary(entry.data))
+      toast.success(`Resumed @${entry.data.recipient.handle} 💛`)
+    },
+    [resetRender]
+  )
 
   const loadFile = useCallback((file: File) => {
     const reader = new FileReader()
@@ -64,7 +62,7 @@ const ThankYouStudio = () => {
           return
         }
         setData(parsed)
-        setRender({ status: "idle" })
+        resetRender()
         setLibrary(saveToThankYouLibrary(parsed))
         toast.success(`Loaded ${parsed.ranking.length} supporters 💛`)
       } catch {
@@ -72,7 +70,7 @@ const ThankYouStudio = () => {
       }
     }
     reader.readAsText(file)
-  }, [])
+  }, [resetRender])
 
   const inputProps = data
     ? {
@@ -86,54 +84,9 @@ const ThankYouStudio = () => {
     ? getThankYouDuration(data.ranking.length)
     : 1
 
-  const handleDownload = useCallback(async () => {
-    if (!inputProps) return
-    setRender({ status: "checking" })
-    try {
-      const { canRenderMediaOnWeb, renderMediaOnWeb } = await import(
-        "@remotion/web-renderer"
-      )
-      const check = await canRenderMediaOnWeb({ width: WIDTH, height: HEIGHT })
-      if (!check.canRender) {
-        const msg =
-          check.issues.find((i) => i.severity === "error")?.message ??
-          "Your browser can't render video. Try Chrome or Edge on desktop."
-        setRender({ status: "error", message: msg })
-        return
-      }
-      setRender({ status: "rendering", progress: 0 })
-      const result = await renderMediaOnWeb({
-        composition: {
-          id: "ThankYouVideo",
-          component: ThankYouVideo,
-          width: WIDTH,
-          height: HEIGHT,
-          fps: FPS,
-          durationInFrames,
-          defaultProps: inputProps,
-        },
-        inputProps,
-        onProgress: ({ progress }) =>
-          setRender({ status: "rendering", progress }),
-      })
-      const blob = await result.getBlob()
-      const url = URL.createObjectURL(blob)
-      setRender({ status: "done", url })
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `${data?.recipient.handle ?? "lctips"}-thank-you.mp4`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      toast.success("Video rendered & downloaded 🎬")
-    } catch (e) {
-      setRender({
-        status: "error",
-        message:
-          e instanceof Error ? e.message : "Rendering failed unexpectedly",
-      })
-    }
-  }, [inputProps, durationInFrames, data])
+  const handleDownload = useCallback(() => {
+    if (data) runRender(data)
+  }, [data, runRender])
 
   return (
     <div className="max-w-3xl mx-auto w-full px-3 py-6">
@@ -285,7 +238,7 @@ const ThankYouStudio = () => {
             <button
               onClick={() => {
                 setData(null)
-                setRender({ status: "idle" })
+                resetRender()
               }}
               className="px-4 py-2.5 rounded-lg text-sm text-zinc-300 bg-zinc-800/60 hover:bg-zinc-700/60 transition-colors"
             >

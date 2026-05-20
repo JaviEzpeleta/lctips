@@ -3,10 +3,10 @@
 import { DetailTransfer } from "@/lib/types"
 import { useCallback, useEffect, useRef, useState } from "react"
 
-const PAGES_PER_BURST = 5
+const PAGES_PER_BURST = 8
 const FETCH_TIMEOUT_MS = 30_000
-const AUTO_CONTINUE_DELAY_MS = 8000
-const MAX_TRANSFERS = 1000
+const AUTO_CONTINUE_DELAY_MS = 3000
+const MAX_TRANSFERS = 5000
 
 type PageResult =
   | { kind: "ok"; page: number; transfers: DetailTransfer[]; hasMore: boolean; profile?: any }

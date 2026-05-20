@@ -33,17 +33,17 @@ export const VhsLook = ({
 
   if (!enabled) return <>{children}</>
 
-  // ── tape head wobble / horizontal jitter ──
+  // ── tape head wobble / horizontal jitter (cranked) ──
   const jitter =
-    Math.sin(frame / 3) * 1.4 + Math.sin(frame / 0.7) * 0.5
-  // rare full vertical roll (every ~5s a quick slip)
-  const rolling = frame % 150 < 6
-  const rollY = rolling ? ((frame % 150) / 6) * 14 : 0
+    Math.sin(frame / 3) * 3.4 + Math.sin(frame / 0.7) * 1.6
+  // more frequent + bigger vertical roll (every ~3s a fat slip)
+  const rolling = frame % 90 < 8
+  const rollY = rolling ? ((frame % 90) / 8) * 34 : 0
 
-  // ── chromatic aberration amount (px), breathes + spikes on rolls ──
-  const ca = 2.2 + Math.sin(frame / 4) * 1.6 + (rolling ? 3.5 : 0)
+  // ── chromatic aberration amount (px), breathes + spikes hard on rolls ──
+  const ca = 5.5 + Math.sin(frame / 4) * 3.8 + (rolling ? 9 : 0)
   // ── tape warp displacement scale ──
-  const warp = 2 + Math.sin(frame / 9) * 1.8 + (rolling ? 6 : 0)
+  const warp = 6 + Math.sin(frame / 9) * 4.5 + (rolling ? 16 : 0)
   // boiling grain — new noise field every frame
   const grainSeed = frame % 211
 
@@ -131,11 +131,11 @@ export const VhsLook = ({
               result="graded"
             />
 
-            {/* boiling film grain, blended on top */}
+            {/* boiling film grain, blended on top — heavy VCR snow */}
             <feTurbulence
               type="fractalNoise"
-              baseFrequency="0.85"
-              numOctaves={2}
+              baseFrequency="0.9"
+              numOctaves={3}
               seed={grainSeed}
               result="grainNoise"
             />
@@ -145,7 +145,7 @@ export const VhsLook = ({
               values="0 0 0 0 0
                       0 0 0 0 0
                       0 0 0 0 0
-                      0 0 0 0.13 0"
+                      0 0 0 0.42 0"
               result="grain"
             />
             <feComposite
@@ -194,9 +194,9 @@ export const VhsLook = ({
         style={{
           pointerEvents: "none",
           mixBlendMode: "multiply",
-          opacity: 0.55,
+          opacity: 0.78,
           backgroundImage:
-            "repeating-linear-gradient(to bottom, rgba(20,0,15,0.42) 0 1px, rgba(255,255,255,0) 1px 4px)",
+            "repeating-linear-gradient(to bottom, rgba(20,0,15,0.6) 0 1px, rgba(255,255,255,0) 1px 4px)",
           transform: `translateY(${frame % 4}px)`,
         }}
       />
@@ -211,18 +211,18 @@ export const VhsLook = ({
           height: 180,
           pointerEvents: "none",
           mixBlendMode: "screen",
-          opacity: 0.22,
+          opacity: 0.4,
           background:
-            "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,225,240,0.9) 45%, rgba(255,255,255,0) 100%)",
+            "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,225,240,0.95) 45%, rgba(255,255,255,0) 100%)",
         }}
       />
 
-      {/* rose vignette + tube edge */}
+      {/* rose vignette + tube edge — deep, starts much earlier */}
       <AbsoluteFill
         style={{
           pointerEvents: "none",
           background:
-            "radial-gradient(120% 100% at 50% 50%, rgba(0,0,0,0) 52%, rgba(70,0,35,0.5) 100%)",
+            "radial-gradient(115% 95% at 50% 50%, rgba(0,0,0,0) 30%, rgba(55,0,28,0.45) 68%, rgba(35,0,18,0.92) 100%)",
         }}
       />
     </AbsoluteFill>
