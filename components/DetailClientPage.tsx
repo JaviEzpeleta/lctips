@@ -329,7 +329,7 @@ const DetailClientPage = ({
           </button>
           <button
             onClick={handleRenderThankYou}
-            className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-pink-500 to-fuchsia-500 hover:opacity-90 rounded-lg transition-opacity flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 text-sm font-semibold text-pink-100 hover:text-white bg-pink-500/15 hover:bg-pink-500/25 ring-1 ring-pink-500/30 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             {renderState.status === "done" ? (
               <>
