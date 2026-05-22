@@ -222,6 +222,42 @@ const Avatar = ({
   )
 }
 
+// A little handwritten note under the cute headline — Gemini-written from this
+// supporter's own recent Lens posts, so the thank-you actually knows who they
+// are and admires something real about them. Absent (no key / fetch failed) →
+// nothing renders and the scene falls back to just the headline.
+const PersonalNote = ({
+  note,
+  appear,
+  wiggle,
+  big = false,
+}: {
+  note: string
+  appear: number
+  wiggle: number
+  big?: boolean
+}) => (
+  <div
+    style={{
+      fontFamily: HAND,
+      marginTop: big ? 28 : 22,
+      fontSize: big ? 44 : 39,
+      lineHeight: 1.34,
+      color: "#b8479a",
+      maxWidth: big ? 900 : 760,
+      opacity: appear,
+      transform: `translateY(${(1 - appear) * 16}px) rotate(${wiggle * 0.3}deg)`,
+      textShadow: "0 2px 0 #fff",
+      display: "-webkit-box",
+      WebkitLineClamp: 3,
+      WebkitBoxOrient: "vertical",
+      overflow: "hidden",
+    }}
+  >
+    {`~ ${note} ~`}
+  </div>
+)
+
 const Intro = ({ recipientHandle }: { recipientHandle: string }) => {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
@@ -322,6 +358,12 @@ const PersonScene = ({ entry }: { entry: ThankYouRankingEntry }) => {
   const eased = 1 - Math.pow(1 - countT, 3)
   const shown = entry.total * eased
   const msgIn = interpolate(frame, [beatOffset(4), beatOffset(5)], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
+  // The personal note slides in just behind the headline — kept early so it
+  // gets as much readable screen time as the ~7-beat scene allows.
+  const noteIn = interpolate(frame, [beatOffset(4.4), beatOffset(5.3)], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   })
@@ -512,6 +554,10 @@ const PersonScene = ({ entry }: { entry: ThankYouRankingEntry }) => {
         >
           {messageForRank(entry.rank)}
         </div>
+
+        {entry.note ? (
+          <PersonalNote note={entry.note} appear={noteIn} wiggle={wiggle} />
+        ) : null}
       </div>
     </AbsoluteFill>
   )
@@ -953,6 +999,11 @@ const Top1Scene = ({ entry }: { entry: ThankYouRankingEntry }) => {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   })
+  // The #1's personal note arrives last, after the warmest headline.
+  const noteIn = interpolate(frame, [112, 134], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
   const float = Math.sin(frame / 16) * 14
   const wiggle = Math.sin(frame / 9) * 3
   const heartBeat = 1 + Math.sin(frame / 5) * 0.06
@@ -1153,6 +1204,15 @@ const Top1Scene = ({ entry }: { entry: ThankYouRankingEntry }) => {
           >
             {messageForRank(1)}
           </div>
+
+          {entry.note ? (
+            <PersonalNote
+              note={entry.note}
+              appear={noteIn}
+              wiggle={wiggle}
+              big
+            />
+          ) : null}
         </div>
       </AbsoluteFill>
     </AbsoluteFill>
