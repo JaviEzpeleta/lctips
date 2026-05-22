@@ -76,10 +76,36 @@ const hashHue = (s: string) => {
   return h
 }
 
-const CUTE = [
-  "💛", "✨", "💖", "🌸", "🤍", "💫", "💕", "💗", "🥰", "🌷",
-  "💞", "🎀", "🦄", "🌈", "💝", "🧁", "🍓", "⭐️", "😻", "💘",
-  "🌟", "💐", "🫶", "💓", "🍭", "🌺", "💟", "🐰",
+// ── Exclusive orb stickers ────────────────────────────────────────────────
+// Cherry-picked from the Lensie sticker packs (full catalog + originals live
+// in /sticker-library, see its INDEX.md). These replace the emoji in all
+// three floating decoration layers. Files sit in public/img/orbs/ so the
+// in-browser render serves them same-origin — a cross-origin image would
+// taint the canvas and a WebCodecs render can't read pixels off a tainted one.
+const orb = (f: string) => staticFile(`img/orbs/${f}`)
+
+// The full storm pool — every orb, used by the background FLOATERS.
+//   gem-*  → vibes-vol-2 (3D glossy bejeweled)   heart/star/… → smol-stickers
+//   dog-*  → orbish-bro                          heart-orb    → zerion
+const ORBS = [
+  orb("gem-heart-pink.webp"), orb("gem-heart-arrow.webp"), orb("gem-heart-eyes.webp"),
+  orb("gem-flower.webp"), orb("gem-rainbow.webp"), orb("gem-lollipop.webp"),
+  orb("heart-red.webp"), orb("heart-blue.webp"), orb("heart-orb.webp"),
+  orb("star.webp"), orb("rainbow.webp"), orb("unicorn.webp"),
+  orb("trophy.webp"), orb("rose.webp"), orb("cat-heart.webp"),
+  orb("flame.webp"), orb("dog-love.webp"), orb("dog-tip.webp"),
+]
+// Tiny layer — only clean, simple shapes that still read at ~40-85px.
+const ORB_TWINKLES = [
+  orb("star.webp"), orb("heart-red.webp"),
+  orb("heart-blue.webp"), orb("gem-heart-pink.webp"),
+]
+// Celebratory subset — hearts, star, trophy, rainbows — for the finale rain.
+const ORB_CONFETTI = [
+  orb("heart-red.webp"), orb("gem-heart-pink.webp"), orb("gem-heart-eyes.webp"),
+  orb("heart-blue.webp"), orb("star.webp"), orb("trophy.webp"),
+  orb("rainbow.webp"), orb("gem-rainbow.webp"), orb("cat-heart.webp"),
+  orb("dog-love.webp"),
 ]
 
 // Big slow back layer + dense fast front layer = parallax cursi storm.
@@ -92,18 +118,21 @@ const FLOATERS = Array.from({ length: 46 }, (_, i) => {
     speed: (back ? 0.28 : 0.7) + ((i * 7) % 10) / 14,
     spin: ((i % 2 === 0 ? 1 : -1) * (0.4 + ((i * 11) % 10) / 8)),
     swing: 30 + ((i * 13) % 60),
-    opacity: back ? 0.28 : 0.62,
-    glyph: CUTE[i % CUTE.length],
+    // Stickers have less visual punch than emoji glyphs, so the layers run a
+    // touch more opaque than the old emoji values (back 0.28 / front 0.62).
+    opacity: back ? 0.42 : 0.8,
+    src: ORBS[i % ORBS.length],
   }
 })
 
 const TWINKLES = Array.from({ length: 22 }, (_, i) => ({
   x: (i * 73.31) % 100,
   y: (i * 41.7) % 100,
-  size: 22 + ((i * 19) % 40),
+  // Bumped up from 22-62: sticker art turns to mush below ~40px.
+  size: 40 + ((i * 19) % 46),
   phase: (i * 0.91) % (Math.PI * 2),
   rate: 5 + (i % 5),
-  glyph: ["✨", "⭐️", "🌟", "💫"][i % 4],
+  src: ORB_TWINKLES[i % ORB_TWINKLES.length],
 }))
 
 const AnimatedBackground = () => {
@@ -123,20 +152,20 @@ const AnimatedBackground = () => {
       {TWINKLES.map((t, i) => {
         const tw = (Math.sin(frame / t.rate + t.phase) + 1) / 2
         return (
-          <span
+          <Img
             key={`tw-${i}`}
+            src={t.src}
             style={{
               position: "absolute",
               left: `${t.x}%`,
               top: `${t.y}%`,
-              fontSize: t.size,
+              width: t.size,
+              height: t.size,
               opacity: 0.15 + tw * 0.7,
               transform: `scale(${0.6 + tw * 0.8}) rotate(${tw * 90}deg)`,
               filter: "drop-shadow(0 0 10px rgba(255,210,235,0.7))",
             }}
-          >
-            {t.glyph}
-          </span>
+          />
         )
       })}
 
@@ -146,20 +175,20 @@ const AnimatedBackground = () => {
         const y = height + 160 - ((frame * h.speed * 10 + h.delay * 13) % span)
         const wob = Math.sin((frame + h.delay) / 20) * h.swing
         return (
-          <span
+          <Img
             key={`fl-${i}`}
+            src={h.src}
             style={{
               position: "absolute",
               left: `${h.x}%`,
               top: y,
               transform: `translateX(${wob}px) rotate(${wob * 0.6 + frame * h.spin}deg)`,
-              fontSize: h.size,
+              width: h.size,
+              height: h.size,
               opacity: h.opacity,
               filter: "drop-shadow(0 4px 12px rgba(255,140,195,0.4))",
             }}
-          >
-            {h.glyph}
-          </span>
+          />
         )
       })}
 
@@ -936,11 +965,12 @@ const SuspenseCard = () => {
 const CONFETTI = Array.from({ length: 70 }, (_, i) => ({
   x: (i * 61.803) % 100,
   delay: (i * 17) % 40,
-  size: 26 + ((i * 23) % 60),
+  // Bumped up from 26-86: stickers need a bit more size than emoji to read.
+  size: 40 + ((i * 23) % 64),
   speed: 7 + ((i * 13) % 9),
   spin: (i % 2 === 0 ? 1 : -1) * (3 + ((i * 7) % 6)),
   sway: 24 + ((i * 11) % 50),
-  glyph: ["💛", "💖", "✨", "🎀", "🌟", "💝", "🥹", "👑", "💕", "🧁"][i % 10],
+  src: ORB_CONFETTI[i % ORB_CONFETTI.length],
 }))
 
 const ConfettiRain = () => {
@@ -952,19 +982,19 @@ const ConfettiRain = () => {
         const y = -c.size - 60 + ((frame * c.speed + c.delay * 11) % span)
         const wob = Math.sin((frame + c.delay) / 13) * c.sway
         return (
-          <span
+          <Img
             key={`cf-${i}`}
+            src={c.src}
             style={{
               position: "absolute",
               left: `${c.x}%`,
               top: y,
-              fontSize: c.size,
+              width: c.size,
+              height: c.size,
               transform: `translateX(${wob}px) rotate(${frame * c.spin}deg)`,
               filter: "drop-shadow(0 4px 10px rgba(255,140,195,0.4))",
             }}
-          >
-            {c.glyph}
-          </span>
+          />
         )
       })}
     </AbsoluteFill>
