@@ -346,7 +346,7 @@ const DetailClientPage = ({
     renderState.status === "checking" || renderState.status === "rendering"
 
   const exportThankYouButton = isDone && (
-    <div className="mt-3">
+    <div className="py-4">
       {isRendering ? (
         <div className="rounded-lg ring-1 ring-pink-500/25 bg-gradient-to-r from-pink-500/10 to-fuchsia-500/10 px-4 py-3">
           <div className="flex items-center justify-between text-sm font-semibold text-pink-200 mb-2">
