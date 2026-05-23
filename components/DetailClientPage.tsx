@@ -22,6 +22,7 @@ import {
   THANK_YOU_JSON_KIND,
   THANK_YOU_JSON_VERSION,
   type ThankYouExport,
+  type ThankYouRankingEntry,
 } from "@/lib/thankYouRanking"
 import { useThankYouRender } from "@/hooks/useThankYouRender"
 
@@ -31,6 +32,51 @@ type TokenFilter = (typeof TOKEN_FILTERS)[number]
 type DirectionTab = "all" | "sent" | "received"
 
 const ITEMS_PER_PAGE = 50
+
+// How many top supporters get a personalized Gemini note baked into the
+// export. Only the top 10 are shown one-by-one in the video (ranks 11–20 are
+// paired and message-less), so there's no point personalizing beyond that.
+const PERSONALIZE_TOP_N = 10
+
+// Asks the server to write a warm, post-aware note for each of the top
+// supporters and merges them onto the ranking. Best-effort: any failure just
+// returns the ranking untouched, so the video falls back to the cute
+// hardcoded lines.
+const fetchThankYouNotes = async (
+  recipientHandle: string,
+  recipientName: string,
+  ranking: ThankYouRankingEntry[],
+  count: number
+): Promise<ThankYouRankingEntry[]> => {
+  const supporters = ranking.slice(0, count).map((e) => ({
+    address: e.address,
+    handle: e.handle,
+    name: e.name,
+  }))
+  if (supporters.length === 0) return ranking
+  try {
+    const res = await fetch("/api/thank-you-messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { handle: recipientHandle, name: recipientName },
+        supporters,
+      }),
+    })
+    if (!res.ok) return ranking
+    const data = await res.json()
+    const notes = data?.notes
+    if (!notes || typeof notes !== "object") return ranking
+    return ranking.map((e) => {
+      const note = notes[e.address.toLowerCase()]
+      return typeof note === "string" && note.trim()
+        ? { ...e, note: note.trim() }
+        : e
+    })
+  } catch {
+    return ranking
+  }
+}
 
 const DetailClientPage = ({
   handle,
@@ -63,6 +109,8 @@ const DetailClientPage = ({
   const [visibleCountReceived, setVisibleCountReceived] = useState(ITEMS_PER_PAGE)
   // Quick mode: render only the top 3 supporters for fast iteration.
   const [quickMode, setQuickMode] = useState(false)
+  // True while Gemini is writing the personalized thank-you notes.
+  const [personalizing, setPersonalizing] = useState(false)
 
   // Prefer progressive profile once it arrives; otherwise use the
   // server-resolved initialProfile so the header renders immediately.
@@ -217,12 +265,36 @@ const DetailClientPage = ({
     </button>
   )
 
-  const buildThankYouPayload = (): ThankYouExport | null => {
+  // Builds the export payload, enriching the top `notesFor` supporters with
+  // personalized Gemini notes (read from their recent Lens posts). Async
+  // because the note generation is a server round-trip.
+  const buildThankYouPayload = async (
+    notesFor: number = PERSONALIZE_TOP_N
+  ): Promise<ThankYouExport | null> => {
     const ranking = buildReceivedGhoRanking(allTransfers, getCachedProfile)
     if (ranking.length === 0) {
       toast("No GHO supporters to thank yet 💛")
       return null
     }
+    const recipientName = profileData?.metadata?.name || handle
+
+    let finalRanking = ranking
+    if (notesFor > 0) {
+      setPersonalizing(true)
+      const loadingToast = toast.loading("Writing personal thank-yous… 💌")
+      try {
+        finalRanking = await fetchThankYouNotes(
+          handle,
+          recipientName,
+          ranking,
+          notesFor
+        )
+      } finally {
+        toast.dismiss(loadingToast)
+        setPersonalizing(false)
+      }
+    }
+
     return {
       kind: THANK_YOU_JSON_KIND,
       version: THANK_YOU_JSON_VERSION,
@@ -230,15 +302,18 @@ const DetailClientPage = ({
       currency: "GHO",
       recipient: {
         handle,
-        name: profileData?.metadata?.name || handle,
+        name: recipientName,
         picture: profileData?.metadata?.picture ?? null,
       },
-      ranking,
+      ranking: finalRanking,
     }
   }
 
-  const handleRenderThankYou = () => {
-    const payload = buildThankYouPayload()
+  const handleRenderThankYou = async () => {
+    if (personalizing) return
+    const payload = await buildThankYouPayload(
+      quickMode ? 3 : PERSONALIZE_TOP_N
+    )
     if (!payload) return
     if (quickMode) {
       runRender({ ...payload, ranking: payload.ranking.slice(0, 3) })
@@ -247,8 +322,9 @@ const DetailClientPage = ({
     runRender(payload)
   }
 
-  const handleExportThankYou = () => {
-    const payload = buildThankYouPayload()
+  const handleExportThankYou = async () => {
+    if (personalizing) return
+    const payload = await buildThankYouPayload()
     if (!payload) return
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
@@ -270,7 +346,7 @@ const DetailClientPage = ({
     renderState.status === "checking" || renderState.status === "rendering"
 
   const exportThankYouButton = isDone && (
-    <div className="mt-3">
+    <div className="py-4">
       {isRendering ? (
         <div className="rounded-lg ring-1 ring-pink-500/25 bg-gradient-to-r from-pink-500/10 to-fuchsia-500/10 px-4 py-3">
           <div className="flex items-center justify-between text-sm font-semibold text-pink-200 mb-2">
@@ -307,8 +383,9 @@ const DetailClientPage = ({
           <button
             type="button"
             onClick={() => setQuickMode((v) => !v)}
+            disabled={personalizing}
             title="Quick mode: render only the top 3 supporters so you can test fast"
-            className={`sm:w-auto px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap ring-1 transition-colors ${
+            className={`sm:w-auto px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap ring-1 transition-colors disabled:opacity-60 ${
               quickMode
                 ? "bg-amber-500/20 text-amber-200 ring-amber-400/40"
                 : "bg-zinc-900/50 text-zinc-400 ring-zinc-700/40 hover:bg-zinc-800/50"
@@ -329,9 +406,15 @@ const DetailClientPage = ({
           </button>
           <button
             onClick={handleRenderThankYou}
-            className="flex-1 py-2.5 text-sm font-semibold text-pink-100 hover:text-white bg-pink-500/15 hover:bg-pink-500/25 ring-1 ring-pink-500/30 rounded-lg transition-colors flex items-center justify-center gap-2"
+            disabled={personalizing}
+            className="flex-1 py-2.5 text-sm font-semibold text-pink-100 hover:text-white bg-pink-500/15 hover:bg-pink-500/25 ring-1 ring-pink-500/30 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait"
           >
-            {renderState.status === "done" ? (
+            {personalizing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Writing personal thank-yous…
+              </>
+            ) : renderState.status === "done" ? (
               <>
                 <Film className="w-4 h-4" />
                 Render again
@@ -347,8 +430,9 @@ const DetailClientPage = ({
           </button>
           <button
             onClick={handleExportThankYou}
+            disabled={personalizing}
             title="Export the ranking as JSON — use this on Safari/mobile or to render later in the studio"
-            className="sm:w-auto px-4 py-2.5 text-sm font-semibold text-pink-200/80 hover:text-white bg-pink-500/10 hover:bg-pink-500/20 ring-1 ring-pink-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+            className="sm:w-auto px-4 py-2.5 text-sm font-semibold text-pink-200/80 hover:text-white bg-pink-500/10 hover:bg-pink-500/20 ring-1 ring-pink-500/20 rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-60 disabled:cursor-wait"
           >
             <Download className="w-4 h-4" />
             JSON
