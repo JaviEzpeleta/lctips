@@ -29,7 +29,7 @@ export default function RootLayout({
     <html lang="en">
       {/* Apply the font class to the body or a parent element */}
       <body
-        className={`${geistMono.variable} ${manrope.className} bg-zinc-900 text-zinc-100 relative min-h-[100dvh] flex flex-col`}
+        className={`${geistMono.variable} ${manrope.className} bg-zinc-900 text-zinc-100 relative min-h-[100dvh] flex flex-col selection:bg-[#47ec93] selection:text-zinc-950`}
       >
         <Toaster
           toastOptions={{
