@@ -30,14 +30,19 @@ export const beatOffset = (beats: number) => Math.round(beats * BEAT)
 // naturally punches on the first downbeat); every supporter scene and the
 // outro begin exactly on a beat.
 export const INTRO_BEATS = 5 // ≈ 84f (was 78)
-export const PERSON_BEATS = 7 // ≈ 98f — individual #10→#2 slides
+// 2× the old 7 beats: the count-up, message and personal note all land by beat
+// ~5.3, so the extra 7 beats are pure calm hold time — just enough for the
+// Gemini-written personal note to actually be readable on screen.
+export const PERSON_BEATS = 14 // ≈ 227f — individual #10→#2 slides (2× for reading)
 export const OUTRO_BEATS = 7 // ≈ 98f (was 96)
 
 // Countdown-specific beat lengths (all snapped to the same grid).
 export const PAIR_BEATS = 5 // ≈ 70f — paired 19·20 … 11·12 slides (secondary)
 export const CARD_BEATS = 3 // ≈ 42f — "TOP 10 💖" divider card
 export const SUSPENSE_BEATS = 5 // ≈ 70f — drumroll build-up before #1
-export const TOP1_BEATS = 12 // ≈ 169f — the #1 finale, held long & loud
+// 2× the old 12 beats — the #1's note slides in around frame ~134, so it needs
+// the long hold just as much as the others to stay readable.
+export const TOP1_BEATS = 24 // ≈ 389f — the #1 finale, held extra long & loud
 
 // Beat index where supporter `i` (0-based) begins, and where the outro begins.
 export const personStartBeat = (i: number) => INTRO_BEATS + i * PERSON_BEATS
