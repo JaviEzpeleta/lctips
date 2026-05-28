@@ -9,6 +9,12 @@ import {
   parsePage,
 } from "@/lib/server-security"
 import { DetailTransfer } from "@/lib/types"
+import {
+  classifyTransferSource,
+  contextualizeTransferSource,
+  resolveDisplayCounterpartyAddress,
+} from "@/lib/transfer-source"
+import type { TransferSource } from "@/lib/transfer-source"
 import { ethers } from "ethers"
 import { LRUCache } from "lru-cache"
 import { NextRequest, NextResponse } from "next/server"
@@ -63,12 +69,19 @@ async function limitedGetTransactionReceipt(
   }
 }
 
-// Tx receipts are immutable on a finalized chain, so resolved counterparties
-// for a given (txHash, direction, profileAddress) tuple never change. Cache
+type TransferResolution = {
+  counterpartyAddress: string | null
+  source: TransferSource
+}
+
+const unknownTransferSource = () => classifyTransferSource({ logs: [] })
+
+// Tx receipts are immutable on a finalized chain, so resolved transfer context
+// for a given (txHash, direction, profileAddress) tuple never changes. Cache
 // across requests — on Fluid Compute this is shared between concurrent users
 // hitting the same warm function instance.
 // LRU generic requires a non-null value type, so we box the null case.
-const counterpartyCache = new LRUCache<string, { v: string | null }>({
+const transferContextCache = new LRUCache<string, { v: TransferResolution }>({
   max: 10_000,
   ttl: 7 * 24 * 60 * 60 * 1000, // 7 days
 })
@@ -96,16 +109,19 @@ function withTimeout<T>(
   })
 }
 
-async function resolveActualCounterparty(
+async function resolveTransferContext(
   txHash: string,
   profileAddress: string,
   direction: "income" | "outcome"
-): Promise<string | null> {
+): Promise<TransferResolution> {
   const cacheKey = `${txHash}:${direction}:${profileAddress.toLowerCase()}`
-  const cachedEntry = counterpartyCache.get(cacheKey)
+  const cachedEntry = transferContextCache.get(cacheKey)
   if (cachedEntry !== undefined) return cachedEntry.v
 
-  let result: string | null = null
+  let result: TransferResolution = {
+    counterpartyAddress: null,
+    source: unknownTransferSource(),
+  }
   let cacheable = false
 
   try {
@@ -116,10 +132,15 @@ async function resolveActualCounterparty(
     )
     if (!receipt) {
       // Don't cache timeouts/missing receipts — they may succeed on retry.
-      return null
+      return result
     }
 
     cacheable = true
+    result.source = classifyTransferSource({
+      from: receipt.from,
+      to: receipt.to,
+      logs: receipt.logs,
+    })
     const profileAddr = profileAddress.toLowerCase()
 
     const fromAddrs = new Set<string>()
@@ -161,7 +182,7 @@ async function resolveActualCounterparty(
         )
         .sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0))
 
-      result = candidates.length > 0 ? candidates[0][0] : null
+      result.counterpartyAddress = candidates.length > 0 ? candidates[0][0] : null
     } else {
       const candidates = [...amountsByAddr.entries()]
         .filter(
@@ -170,14 +191,14 @@ async function resolveActualCounterparty(
         )
         .sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0))
 
-      result = candidates.length > 0 ? candidates[0][0] : null
+      result.counterpartyAddress = candidates.length > 0 ? candidates[0][0] : null
     }
   } catch (error) {
     console.error(`🔗❌ [detail-page] Failed to resolve counterparty for tx ${txHash}:`, error)
-    return null
+    return result
   }
 
-  if (cacheable) counterpartyCache.set(cacheKey, { v: result })
+  if (cacheable) transferContextCache.set(cacheKey, { v: result })
   return result
 }
 
@@ -215,17 +236,17 @@ async function processTransferPage(
       t.to?.toLowerCase() !== profileAddr
   )
 
-  const resolveCache = new Map<string, Promise<string | null>>()
+  const resolveCache = new Map<string, Promise<TransferResolution>>()
 
   function getCachedResolve(
     txHash: string,
     direction: "income" | "outcome"
-  ): Promise<string | null> {
+  ): Promise<TransferResolution> {
     const key = `${txHash}:${direction}`
     if (!resolveCache.has(key)) {
       resolveCache.set(
         key,
-        resolveActualCounterparty(txHash, address, direction)
+        resolveTransferContext(txHash, address, direction)
       )
     }
     return resolveCache.get(key)!
@@ -249,7 +270,13 @@ async function processTransferPage(
       symbol: transfer.token.symbol,
       transactionHash: transfer.transactionHash,
       direction: "income" as const,
-      counterpartyAddress: resolved || transfer.from,
+      counterpartyAddress: resolveDisplayCounterpartyAddress({
+        source: resolved.source,
+        fallbackAddress: resolved.counterpartyAddress || transfer.from,
+        profileAddress: address,
+        rawCounterpartyAddress: transfer.from,
+      }),
+      source: contextualizeTransferSource(resolved.source, "income"),
     }
   })
 
@@ -263,12 +290,18 @@ async function processTransferPage(
     return {
       timestamp: transfer.timestamp,
       from: address,
-      to: resolved || transfer.to,
+      to: resolved.counterpartyAddress || transfer.to,
       amount: formattedAmount,
       symbol: transfer.token.symbol,
       transactionHash: transfer.transactionHash,
       direction: "outcome" as const,
-      counterpartyAddress: resolved || transfer.to,
+      counterpartyAddress: resolveDisplayCounterpartyAddress({
+        source: resolved.source,
+        fallbackAddress: resolved.counterpartyAddress || transfer.to,
+        profileAddress: address,
+        rawCounterpartyAddress: transfer.to,
+      }),
+      source: contextualizeTransferSource(resolved.source, "outcome"),
     }
   })
 

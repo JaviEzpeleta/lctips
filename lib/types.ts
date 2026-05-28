@@ -1,3 +1,5 @@
+import type { TransferSource } from "./transfer-source"
+
 export interface ProfileFetchedFromGraphQL {
   id: string
   ownedBy: string
@@ -50,4 +52,5 @@ export interface DetailTransfer {
   transactionHash: string
   direction: "income" | "outcome"
   counterpartyAddress: string
+  source?: TransferSource
 }

@@ -9,6 +9,21 @@ import { format } from "date-fns"
 import { memo, useState } from "react"
 import { useProfileByAddress } from "@/hooks/useProfileByAddress"
 
+const sourceChipClasses: Record<string, string> = {
+  profile_tip: "bg-orange-500/10 text-orange-300 border-orange-500/20",
+  post_tip: "bg-purple-500/10 text-purple-300 border-purple-500/20",
+  collect: "bg-sky-500/10 text-sky-300 border-sky-500/20",
+  fundraising: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
+  prediction: "bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20",
+  competition: "bg-cyan-500/10 text-cyan-300 border-cyan-500/20",
+  unknown_post_action: "bg-zinc-700/30 text-zinc-300 border-zinc-600/40",
+  unknown_account_action: "bg-zinc-700/30 text-zinc-300 border-zinc-600/40",
+  known_system_transfer: "bg-blue-500/10 text-blue-300 border-blue-500/20",
+  swap: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20",
+  bridge: "bg-teal-500/10 text-teal-300 border-teal-500/20",
+  unknown: "bg-zinc-800/60 text-zinc-400 border-zinc-700/60",
+}
+
 const DetailTransferRow = ({
   transfer,
   index,
@@ -25,6 +40,14 @@ const DetailTransferRow = ({
   const timestamp = new Date(transfer.timestamp)
   const formattedTime = formatRelativeTime(timestamp)
   const fullTimestamp = format(timestamp, "MMM d, yyyy 'at' HH:mm")
+  const source = transfer.source ?? {
+    kind: "unknown",
+    label: "Unknown",
+    confidence: "unknown",
+  }
+  const sourceTitle = source.contractLabel
+    ? `${source.label} via ${source.contractLabel}`
+    : source.label
 
   const getTokenIcon = (symbol: string) => {
     switch (symbol) {
@@ -92,8 +115,20 @@ const DetailTransferRow = ({
               </span>
             )}
           </div>
-          <div className="text-[11px] text-zinc-500" title={fullTimestamp}>
-            {formattedTime}
+          <div
+            className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[11px] text-zinc-500"
+            title={fullTimestamp}
+          >
+            <span>{formattedTime}</span>
+            <span className="text-zinc-700">·</span>
+            <span
+              className={`inline-flex max-w-full items-center rounded-full border px-1.5 py-0.5 leading-none ${
+                sourceChipClasses[source.kind] ?? sourceChipClasses.unknown
+              }`}
+              title={sourceTitle}
+            >
+              {source.label}
+            </span>
           </div>
         </div>
 
