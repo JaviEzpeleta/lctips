@@ -1,14 +1,39 @@
 import { getCachedLensProfileByAddress } from "@/lib/lensProfileCache"
+import {
+  RequestValidationError,
+  createFixedWindowRateLimiter,
+  getClientIp,
+  isEvmAddress,
+  parseJsonObject,
+} from "@/lib/server-security"
 import { NextResponse } from "next/server"
 
 const MAX_BATCH = 64
+const limiter = createFixedWindowRateLimiter({ limit: 120, windowMs: 60_000 })
 
 export async function POST(req: Request) {
   let addresses: unknown
+  const rateLimit = limiter.check(getClientIp(req.headers))
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil(rateLimit.retryAfterMs / 1000)),
+        },
+      }
+    )
+  }
+
   try {
-    const body = await req.json()
+    const body = await parseJsonObject(req, 4096)
     addresses = body.addresses
-  } catch {
+  } catch (error) {
+    if (error instanceof RequestValidationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
+
     return NextResponse.json({ error: "Invalid body" }, { status: 400 })
   }
 
@@ -21,6 +46,7 @@ export async function POST(req: Request) {
       (addresses as unknown[])
         .filter((a): a is string => typeof a === "string")
         .map((a) => a.toLowerCase())
+        .filter(isEvmAddress)
     )
   ).slice(0, MAX_BATCH)
 

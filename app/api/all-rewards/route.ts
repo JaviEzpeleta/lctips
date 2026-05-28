@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { unstable_cache } from "next/cache"
+import {
+  createFixedWindowRateLimiter,
+  getClientIp,
+} from "@/lib/server-security"
 
 const REWARDS_WALLET = "0x2a705184A6Bb7Dd185E4534d79E441B3edA1082c"
+const MAX_REWARD_PAGES = 100
+const limiter = createFixedWindowRateLimiter({ limit: 120, windowMs: 60_000 })
 
 // Cached function to fetch all rewards - refreshes every 1 hour
 const getCachedAllRewards = unstable_cache(
@@ -116,6 +122,19 @@ function detectBatchesAndCalculatePercentages(rewards: any[]): RewardWithBatch[]
 }
 
 export async function GET(req: NextRequest) {
+  const rateLimit = limiter.check(getClientIp(req.headers))
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil(rateLimit.retryAfterMs / 1000)),
+        },
+      }
+    )
+  }
+
   try {
     // Use cached function that refreshes every hour
     const allRewards = await getCachedAllRewards()
@@ -138,13 +157,13 @@ async function fetchAllTransfers() {
   let allTransactions: any[] = []
   let page = 1
 
-  while (true) {
+  while (page <= MAX_REWARD_PAGES) {
     try {
       const limit = 100
       const toDate = new Date().toISOString()
       const url = `https://explorer-api.lens.xyz/address/${REWARDS_WALLET}/transfers?toDate=${toDate}&limit=${limit}&page=${page}`
 
-      const response = await fetch(url)
+      const response = await fetch(url, { signal: AbortSignal.timeout(15_000) })
       const data = await response.json()
 
       if (!data.items || data.items.length === 0) {

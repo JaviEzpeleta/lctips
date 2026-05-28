@@ -1,10 +1,16 @@
 import { unstable_cache } from "next/cache"
 import { getLensProfileByAddress, getLensProfileByHandle } from "@/lib/lens-api"
+import { LRUCache } from "lru-cache"
 
 const REVALIDATE_SECONDS = 3600
+const MAX_PROFILE_CACHE_KEYS = 2_000
 
-const addressWrappers = new Map<string, () => Promise<any>>()
-const handleWrappers = new Map<string, () => Promise<any>>()
+const addressWrappers = new LRUCache<string, () => Promise<any>>({
+  max: MAX_PROFILE_CACHE_KEYS,
+})
+const handleWrappers = new LRUCache<string, () => Promise<any>>({
+  max: MAX_PROFILE_CACHE_KEYS,
+})
 
 export const profileAddressTag = (address: string) =>
   `lens-profile:${address}`

@@ -1,5 +1,13 @@
 import { getLensProfileByHandle } from "@/lib/lens-api"
 import { getTransfers } from "@/lib/lens-explorer"
+import {
+  RequestValidationError,
+  createFixedWindowRateLimiter,
+  getClientIp,
+  normalizeLensHandle,
+  parseJsonObject,
+  parsePage,
+} from "@/lib/server-security"
 import { DetailTransfer } from "@/lib/types"
 import { ethers } from "ethers"
 import { LRUCache } from "lru-cache"
@@ -12,6 +20,8 @@ const transferIface = new ethers.Interface([
 ])
 
 const RPC_TIMEOUT_MS = 20_000
+const MAX_DETAIL_PAGE = 50
+const limiter = createFixedWindowRateLimiter({ limit: 60, windowMs: 60_000 })
 
 // Cap concurrent RPC calls across ALL in-flight requests hitting this
 // function instance. Previously a single page fired ~100 concurrent
@@ -298,16 +308,34 @@ async function processTransferPage(
 export async function POST(req: NextRequest) {
   let handle: string
   let page: number
-  try {
-    const body = await req.json()
-    handle = body.handle
-    page = body.page
-  } catch {
-    return NextResponse.json({ error: "Invalid or empty request body" }, { status: 400 })
+  const rateLimit = limiter.check(getClientIp(req.headers))
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil(rateLimit.retryAfterMs / 1000)),
+        },
+      }
+    )
   }
 
-  if (!handle || page == null) {
-    return NextResponse.json({ error: "Missing handle or page" }, { status: 400 })
+  try {
+    const body = await parseJsonObject(req, 1024)
+    const parsedHandle = normalizeLensHandle(body.handle)
+    const parsedPage = parsePage(body.page, MAX_DETAIL_PAGE)
+    if (!parsedHandle || parsedPage == null) {
+      return NextResponse.json({ error: "Invalid handle or page" }, { status: 400 })
+    }
+    handle = parsedHandle
+    page = parsedPage
+  } catch (error) {
+    if (error instanceof RequestValidationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
+
+    return NextResponse.json({ error: "Invalid or empty request body" }, { status: 400 })
   }
 
   const requestStart = performance.now()

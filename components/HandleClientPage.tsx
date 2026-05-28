@@ -17,7 +17,6 @@ import { GroupedTotal } from "@/app/api/profile/route"
 import TipFromUserRow from "./TipFromUserRow"
 import { ethers } from "ethers"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import axios from "axios"
 import NumberFlow from "@number-flow/react"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -46,6 +45,20 @@ const game = [
   [28, 21, 14, 6, 13, 20, 10],
   [14, 6, 13, 20, 9, 7, 21],
 ]
+
+const fetchProfileDataByAddress = async (address: string) => {
+  const response = await fetch("/api/profile-data-by-address", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address }),
+  })
+  if (!response.ok) {
+    throw new Error(`Profile lookup failed with HTTP ${response.status}`)
+  }
+
+  const data = await response.json()
+  return data.profile
+}
 
 const HandleClientPage = ({ handle }: { handle: string }) => {
   const [isHovering, setIsHovering] = useState(false)
@@ -102,6 +115,7 @@ const HandleClientPage = ({ handle }: { handle: string }) => {
     const fetchBasicProfileData = async () => {
       const data = await fetch(`/api/basic-profile`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ handle }),
       })
       const resObject = await data.json()
@@ -121,6 +135,7 @@ const HandleClientPage = ({ handle }: { handle: string }) => {
     const fetchProfileData = async () => {
       const data = await fetch(`/api/profile`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ handle }),
       })
       const resObject = await data.json()
@@ -141,12 +156,8 @@ const HandleClientPage = ({ handle }: { handle: string }) => {
       totalIncomeRef.current = 0
 
       resObject.groupedIncomeTransfers.forEach((transfer: any) => {
-        axios
-          .post("/api/profile-data-by-address", {
-            address: transfer.from,
-          })
-          .then((response) => {
-            const profileData = response.data.profile
+        fetchProfileDataByAddress(transfer.from)
+          .then((profileData) => {
             if (
               !profileData ||
               !profileData.username ||
@@ -179,10 +190,7 @@ const HandleClientPage = ({ handle }: { handle: string }) => {
       const processGhoOutcome = async () => {
         let theTotalOutcomeAmount = 0
         for (const transfer of resObject.groupedOutcomeTransfers) {
-          const response = await axios.post("/api/profile-data-by-address", {
-            address: transfer.from,
-          })
-          const profileData = response.data.profile
+          const profileData = await fetchProfileDataByAddress(transfer.from)
           if (!profileData || !profileData.username || !profileData.metadata) {
             setAllUnidentifiableOutcomeTransfers((prev) => [...prev, transfer])
           } else {
@@ -210,13 +218,7 @@ const HandleClientPage = ({ handle }: { handle: string }) => {
           const promises = resObject.groupedBonsaiIncomeTransfers.map(
             async (transfer: any) => {
               try {
-                const response = await axios.post(
-                  "/api/profile-data-by-address",
-                  {
-                    address: transfer.from,
-                  }
-                )
-                const profileData = response.data.profile
+                const profileData = await fetchProfileDataByAddress(transfer.from)
                 if (
                   profileData &&
                   profileData.username &&
@@ -255,10 +257,7 @@ const HandleClientPage = ({ handle }: { handle: string }) => {
 
         if (resObject.groupedBonsaiOutcomeTransfers) {
           for (const transfer of resObject.groupedBonsaiOutcomeTransfers) {
-            const response = await axios.post("/api/profile-data-by-address", {
-              address: transfer.from,
-            })
-            const profileData = response.data.profile
+            const profileData = await fetchProfileDataByAddress(transfer.from)
             if (
               profileData &&
               profileData.username &&
@@ -294,13 +293,7 @@ const HandleClientPage = ({ handle }: { handle: string }) => {
           const promises = resObject.groupedPointlessIncomeTransfers.map(
             async (transfer: any) => {
               try {
-                const response = await axios.post(
-                  "/api/profile-data-by-address",
-                  {
-                    address: transfer.from,
-                  }
-                )
-                const profileData = response.data.profile
+                const profileData = await fetchProfileDataByAddress(transfer.from)
                 if (
                   profileData &&
                   profileData.username &&
@@ -339,10 +332,7 @@ const HandleClientPage = ({ handle }: { handle: string }) => {
 
         if (resObject.groupedPointlessOutcomeTransfers) {
           for (const transfer of resObject.groupedPointlessOutcomeTransfers) {
-            const response = await axios.post("/api/profile-data-by-address", {
-              address: transfer.from,
-            })
-            const profileData = response.data.profile
+            const profileData = await fetchProfileDataByAddress(transfer.from)
             if (
               profileData &&
               profileData.username &&

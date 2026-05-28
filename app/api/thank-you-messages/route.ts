@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server"
 import { getLensProfileByHandle, getLensV3PostsByAddress } from "@/lib/lens-api"
+import {
+  RequestValidationError,
+  createFixedWindowRateLimiter,
+  getClientIp,
+  isEvmAddress,
+  normalizeLensHandle,
+  parseJsonObject,
+} from "@/lib/server-security"
 
 // One recipient lookup + up to 10 supporter post fetches + one Gemini call —
 // give the function room beyond the default serverless timeout.
@@ -12,6 +20,8 @@ const MAX_SUPPORTERS = 10
 const POSTS_PER_SUPPORTER = 12
 const POSTS_FOR_RECIPIENT = 18
 const MAX_POST_CHARS = 280
+const MAX_NAME_CHARS = 80
+const limiter = createFixedWindowRateLimiter({ limit: 10, windowMs: 60_000 })
 
 type SupporterInput = { address: string; handle: string; name: string }
 
@@ -60,18 +70,65 @@ ${supporterBlocks}
 Return a JSON array, one object per supporter, in the same order: {"handle": "<handle without @>", "note": "<the note>"}.`
 
 export async function POST(req: Request) {
-  let recipient: { handle?: string; name?: string } | undefined
-  let supporters: SupporterInput[] = []
-  try {
-    const body = await req.json()
-    recipient = body.recipient
-    supporters = Array.isArray(body.supporters) ? body.supporters : []
-  } catch {
-    return NextResponse.json({ error: "Invalid body" }, { status: 400 })
+  const rateLimit = limiter.check(getClientIp(req.headers))
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil(rateLimit.retryAfterMs / 1000)),
+        },
+      }
+    )
   }
 
-  const recipientHandle = recipient?.handle
-  const recipientName = recipient?.name || recipientHandle || "they"
+  let recipientHandle: string | null = null
+  let recipientName = "they"
+  let supporters: SupporterInput[] = []
+  try {
+    const body = await parseJsonObject(req, 8192)
+    const recipient =
+      body.recipient && typeof body.recipient === "object" && !Array.isArray(body.recipient)
+        ? (body.recipient as { handle?: unknown; name?: unknown })
+        : undefined
+
+    recipientHandle = normalizeLensHandle(recipient?.handle)
+    recipientName =
+      typeof recipient?.name === "string" && recipient.name.trim()
+        ? recipient.name.trim().slice(0, MAX_NAME_CHARS)
+        : recipientHandle || "they"
+
+    supporters = Array.isArray(body.supporters)
+      ? body.supporters
+          .map((item): SupporterInput | null => {
+            if (!item || typeof item !== "object" || Array.isArray(item)) return null
+            const supporter = item as {
+              address?: unknown
+              handle?: unknown
+              name?: unknown
+            }
+            const handle = normalizeLensHandle(supporter.handle)
+            const address = supporter.address
+            if (!handle || !isEvmAddress(address)) return null
+            return {
+              address,
+              handle,
+              name:
+                typeof supporter.name === "string" && supporter.name.trim()
+                  ? supporter.name.trim().slice(0, MAX_NAME_CHARS)
+                  : handle,
+            }
+          })
+          .filter((item): item is SupporterInput => item !== null)
+      : []
+  } catch (error) {
+    if (error instanceof RequestValidationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
+
+    return NextResponse.json({ error: "Invalid body" }, { status: 400 })
+  }
 
   const top = supporters
     .filter(

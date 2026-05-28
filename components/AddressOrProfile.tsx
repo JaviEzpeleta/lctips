@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import axios from "axios"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import Link from "next/link"
 
@@ -19,12 +18,18 @@ const AddressOrProfile = ({
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const response = await axios.post("/api/profile-data-by-address", {
-        address,
-      })
-
-      setProfile(response.data.profile)
-      setLoading(false)
+      try {
+        const response = await fetch("/api/profile-data-by-address", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address }),
+        })
+        if (!response.ok) return
+        const data = await response.json()
+        setProfile(data.profile)
+      } finally {
+        setLoading(false)
+      }
     }
     fetchProfile()
   }, [address])

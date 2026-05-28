@@ -9,12 +9,10 @@ import {
   StandardPublication,
   SavedUser,
 } from "./types"
+import { isEvmAddress, normalizeLensHandle } from "./server-security"
 
 const cleanHandle = (handle: string) => {
-  const cleaned = handle.startsWith("lens/")
-    ? handle.replace("lens/", "")
-    : handle
-  return cleaned.toLowerCase().trim()
+  return normalizeLensHandle(handle)
 }
 
 // Define the type for publication items
@@ -82,18 +80,19 @@ export const getMultiplePublicationsByProfileId = async (
   handle: string,
   pages = PROFILE_PAGES_TO_PARSE
 ) => {
-  const getPaginatedPosts = async (cursor?: string) => {
-    const cleanedHandle = cleanHandle(handle)
+  const cleanedHandle = cleanHandle(handle)
+  if (!cleanedHandle) return []
 
+  const getPaginatedPosts = async (cursor?: string) => {
     const graphqlQuery = {
       query: `
-        query PublicationsByHandle {
+        query PublicationsByHandle($handle: String!, $cursor: Cursor) {
           publications(request: {
             where: {
-              from: "${cleanedHandle}",
+              from: $handle,
               publicationTypes: [POST, QUOTE, MIRROR]
             },
-            ${cursor ? `cursor: "${cursor}"` : ""}
+            cursor: $cursor
           }) {
             items {
               ... on Post {
@@ -128,7 +127,7 @@ export const getMultiplePublicationsByProfileId = async (
           }
         }
       `,
-      variables: {},
+      variables: { handle: cleanedHandle, cursor },
     }
 
     const response = await fetch(ENDPOINT, {
@@ -187,11 +186,14 @@ export const getMultiplePublicationsByProfileId = async (
 }
 
 export const getLensProfileByHandle = async (handle: string) => {
+  const cleanedHandle = normalizeLensHandle(handle)
+  if (!cleanedHandle) return false
+
   const query = `
-query GetProfileByHandle {
-  account(request: { username: { localName: "${handle}" } }) {
-    score
-    address
+	query GetProfileByHandle($handle: String!) {
+	  account(request: { username: { localName: $handle } }) {
+	    score
+	    address
     createdAt 
     owner
     metadata {
@@ -207,25 +209,27 @@ query GetProfileByHandle {
       }
     }
   }
-}
-`
+	}
+	`
   const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, variables: { handle: cleanedHandle } }),
   })
 
   const data = await response.json()
-  return { ...data.data.account, handle }
+  const account = data?.data?.account
+  return account ? { ...account, handle: cleanedHandle } : false
 }
 
 export const getLensProfileByAddress = async (address: string) => {
+  if (!isEvmAddress(address)) return false
 
   const query = `
-query GetProfileByAddress {
-  account(request: { address: "${address}" } ) {
+	query GetProfileByAddress($address: EvmAddress!) {
+	  account(request: { address: $address } ) {
     score
     address
     createdAt 
@@ -247,13 +251,13 @@ query GetProfileByAddress {
     }
   }
 }
-`
+	`
   const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, variables: { address } }),
   })
 
   const data = await response.json()
@@ -263,10 +267,11 @@ query GetProfileByAddress {
 }
 
 export const getLensAddressByOwnerAddress = async (address: string) => {
+  if (!isEvmAddress(address)) return false
 
   const query = `
-query GetProfileByAddress {
-   accountsBulk(request: { ownedBy: ["${address}"] }) {
+	query GetProfileByAddress($address: EvmAddress!) {
+	   accountsBulk(request: { ownedBy: [$address] }) {
     address
     username {
       value
@@ -277,13 +282,13 @@ query GetProfileByAddress {
     }
   }
 }
-`
+	`
   const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, variables: { address } }),
   })
 
   const data = await response.json()
@@ -291,13 +296,16 @@ query GetProfileByAddress {
 }
 
 export const fetchLensProfileByAddress = async (address: string) => {
+  if (!isEvmAddress(address)) return false
+
   const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query: profileByAddress, variables: { address } }),
   })
   const data = await response.json()
-  const handle = data.data.profiles.items[0].handle.fullHandle
+  const handle = data?.data?.profiles?.items?.[0]?.handle?.fullHandle
+  if (!handle) return false
   return await getLensProfileByHandle(handle)
 }
 
@@ -363,13 +371,16 @@ export const getLensV3PostsByAddress = async (lensProfile: {
   address: string
   handle: string
 }) => {
+  const address = lensProfile.address.trim()
+  if (!isEvmAddress(address)) return []
+
   const theQuery = `
-query PublicationsByHandle {
-  posts(request: {
-    filter:  {
-       authors: ["${lensProfile.address.trim()}"]
-    },
-  }) {
+	query PublicationsByHandle($address: EvmAddress!) {
+	  posts(request: {
+	    filter:  {
+	       authors: [$address]
+	    },
+	  }) {
     items {
       ... on Post {
         id
@@ -436,7 +447,7 @@ query PublicationsByHandle {
     const response = await fetch(ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: theQuery }),
+      body: JSON.stringify({ query: theQuery, variables: { address } }),
     })
 
     const data = await response.json()
@@ -503,6 +514,3 @@ query PublicationsByHandle {
     return []
   }
 }
-
-
-

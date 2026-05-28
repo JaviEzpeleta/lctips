@@ -5,13 +5,40 @@ import {
   getSenderFromTx,
   getReceiverFromTx,
 } from "@/lib/lens-explorer"
+import {
+  RequestValidationError,
+  createFixedWindowRateLimiter,
+  getClientIp,
+  normalizeLensHandle,
+  parseJsonObject,
+} from "@/lib/server-security"
 import { ethers } from "ethers"
 import { NextRequest, NextResponse } from "next/server"
 
+const MAX_TRANSFER_PAGES = 25
+const limiter = createFixedWindowRateLimiter({ limit: 10, windowMs: 60_000 })
+
 export async function POST(req: NextRequest) {
-  const { handle } = await req.json()
+  const rateLimit = limiter.check(getClientIp(req.headers))
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil(rateLimit.retryAfterMs / 1000)),
+        },
+      }
+    )
+  }
 
   try {
+    const body = await parseJsonObject(req, 512)
+    const handle = normalizeLensHandle(body.handle)
+    if (!handle) {
+      return NextResponse.json({ error: "Invalid handle" }, { status: 400 })
+    }
+
     const profile = await getLensProfileByHandle(handle)
     if (!profile) {
       return NextResponse.json(
@@ -27,7 +54,7 @@ export async function POST(req: NextRequest) {
       let allIncomeTransfers = [] as any[]
       let page = 1
       let newTransfers
-      while (true) {
+      while (page <= MAX_TRANSFER_PAGES) {
         try {
           newTransfers = await getTransfers(profile.address, page)
           if (!newTransfers || newTransfers.length === 0) {
@@ -50,7 +77,7 @@ export async function POST(req: NextRequest) {
       let allOutcomeTransfers = [] as any[]
       let pageOutcome = 1
       let newTransfersOutcome
-      while (true) {
+      while (pageOutcome <= MAX_TRANSFER_PAGES) {
         try {
           newTransfersOutcome = await getOutcomeTransfers(
             profile.address,
@@ -271,6 +298,10 @@ export async function POST(req: NextRequest) {
       ),
     })
   } catch (error) {
+    if (error instanceof RequestValidationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
+
     console.error("Error processing profile:", error)
     return NextResponse.json(
       { error: "Failed to process profile" },
