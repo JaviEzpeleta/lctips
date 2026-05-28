@@ -1,30 +1,40 @@
 import { ethers } from "ethers"
 import { getLensAddressByOwnerAddress } from "./lens-api"
+import { createTransferPageCache } from "./lens-explorer-cache"
+
+const TRANSFER_PAGE_CACHE_TTL_MS = 60_000
+const MAX_TRANSFER_PAGE_CACHE_KEYS = 2_000
+
+const transferPageCache = createTransferPageCache<any>({
+  ttlMs: TRANSFER_PAGE_CACHE_TTL_MS,
+  max: MAX_TRANSFER_PAGE_CACHE_KEYS,
+})
 
 export const getTransfers = async (address: string, page: number) => {
   const limit = 100
-  const toDate = new Date().toISOString()
 
   // Only show tips from 2026 onwards
   const fromDate = new Date("2026-01-01T00:00:00.000Z")
 
-  const theURL = `https://explorer-api.lens.xyz/address/${address}/transfers?fromDate=${fromDate.toISOString()}&toDate=${toDate}&limit=${limit}&page=${page}`
-
   const t0 = performance.now()
-  console.log(`🔍 [lens-explorer] Fetching transfers for ${address.slice(0, 10)}... page ${page}...`)
 
   try {
-    const response = await fetch(theURL, { signal: AbortSignal.timeout(15_000) })
+    return await transferPageCache.getOrFetch({ address, page }, async () => {
+      const toDate = new Date().toISOString()
+      const theURL = `https://explorer-api.lens.xyz/address/${address}/transfers?fromDate=${fromDate.toISOString()}&toDate=${toDate}&limit=${limit}&page=${page}`
 
-    if (!response.ok) {
-      console.error(`🔍❌ [lens-explorer] HTTP ${response.status} for ${address.slice(0, 10)}... page ${page}`)
-      return []
-    }
+      console.log(`🔍 [lens-explorer] Fetching transfers for ${address.slice(0, 10)}... page ${page}...`)
+      const response = await fetch(theURL, { signal: AbortSignal.timeout(15_000) })
 
-    const data = await response.json()
-    const elapsed = (performance.now() - t0).toFixed(0)
-    console.log(`🔍✅ [lens-explorer] Got ${data.items?.length ?? 0} transfers in ${elapsed}ms`)
-    return data.items
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      const elapsed = (performance.now() - t0).toFixed(0)
+      console.log(`🔍✅ [lens-explorer] Got ${data.items?.length ?? 0} transfers in ${elapsed}ms`)
+      return data.items ?? []
+    })
   } catch (error: any) {
     const elapsed = (performance.now() - t0).toFixed(0)
     if (error?.name === "TimeoutError" || error?.name === "AbortError") {

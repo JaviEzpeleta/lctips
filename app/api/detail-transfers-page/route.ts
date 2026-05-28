@@ -1,5 +1,5 @@
-import { getLensProfileByHandle } from "@/lib/lens-api"
 import { getTransfers } from "@/lib/lens-explorer"
+import { getCachedLensProfileByHandle } from "@/lib/lensProfileCache"
 import {
   RequestValidationError,
   createFixedWindowRateLimiter,
@@ -344,7 +344,7 @@ export async function POST(req: NextRequest) {
     console.log(`👤 [detail-page] Fetching profile for @${handle}...`)
     const profileStart = performance.now()
     const profile = await withTimeout(
-      getLensProfileByHandle(handle),
+      getCachedLensProfileByHandle(handle),
       10_000,
       `getLensProfileByHandle(@${handle})`
     )

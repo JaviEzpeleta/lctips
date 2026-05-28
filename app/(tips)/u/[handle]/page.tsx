@@ -1,8 +1,8 @@
 import { cache } from "react"
 import DetailClientPage from "@/components/DetailClientPage"
-import { getLensProfileByHandle } from "@/lib/lens-api"
+import { getCachedLensProfileByHandle } from "@/lib/lensProfileCache"
 
-const getProfile = cache(getLensProfileByHandle)
+const getProfile = cache(getCachedLensProfileByHandle)
 
 export const generateMetadata = async ({
   params,

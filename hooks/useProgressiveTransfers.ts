@@ -4,6 +4,7 @@ import { DetailTransfer } from "@/lib/types"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 const PAGES_PER_BURST = 8
+const PAGE_FETCH_CONCURRENCY = 2
 const FETCH_TIMEOUT_MS = 30_000
 const AUTO_CONTINUE_DELAY_MS = 3000
 const MAX_TRANSFERS = 5000
@@ -144,49 +145,72 @@ export function useProgressiveTransfers(handle: string) {
       let anyDone = false
       let lastGoodPage = 0
 
-      // Pages run serially to avoid saturating the downstream RPC
-      // (getTransactionReceipt). See app/api/detail-transfers-page/route.ts
-      // for the RPC semaphore that backs this up server-side.
-      for (let i = 0; i < PAGES_PER_BURST; i++) {
-        if (controller.signal.aborted) return
-        const pageNum = firstPage + i
-        const r = await fetchPageRaw(pageNum, controller.signal)
-        if (controller.signal.aborted || r.kind === "aborted") return
+      // Keep page fetches modestly parallel. Each page fans out into receipt
+      // RPC work, and the server route still caps those calls globally.
+      let nextPage = firstPage
+      let pagesScheduled = 0
+      let shouldStop = false
 
-        if (r.kind === "notFound") {
-          notFound = true
-          break
+      while (pagesScheduled < PAGES_PER_BURST && !shouldStop) {
+        if (controller.signal.aborted) return
+
+        const batchPages: number[] = []
+        while (
+          batchPages.length < PAGE_FETCH_CONCURRENCY &&
+          pagesScheduled < PAGES_PER_BURST
+        ) {
+          batchPages.push(nextPage)
+          nextPage += 1
+          pagesScheduled += 1
         }
-        if (r.kind === "error") {
-          console.error(`❌ [transfers] Page ${r.page}: ${r.message}`)
-          setLoadError(
-            lastGoodPage > 0 || dedupMapRef.current.size > 0
-              ? "Couldn't load more transfers right now. You can try again."
-              : "Couldn't load transfers right now. You can try again."
-          )
-          break
-        }
-        if (r.kind === "empty") {
+
+        const results = await Promise.all(
+          batchPages.map((pageNum) => fetchPageRaw(pageNum, controller.signal))
+        )
+
+        for (const r of results) {
+          if (controller.signal.aborted || r.kind === "aborted") return
+
+          if (r.kind === "notFound") {
+            notFound = true
+            shouldStop = true
+            break
+          }
+          if (r.kind === "error") {
+            console.error(`❌ [transfers] Page ${r.page}: ${r.message}`)
+            setLoadError(
+              lastGoodPage > 0 || dedupMapRef.current.size > 0
+                ? "Couldn't load more transfers right now. You can try again."
+                : "Couldn't load transfers right now. You can try again."
+            )
+            shouldStop = true
+            break
+          }
+          if (r.kind === "empty") {
+            if (r.profile) setProfileData(r.profile)
+            anyDone = true
+            shouldStop = true
+            break
+          }
+          // r.kind === "ok"
           if (r.profile) setProfileData(r.profile)
-          anyDone = true
-          break
-        }
-        // r.kind === "ok"
-        if (r.profile) setProfileData(r.profile)
-        mergeTransfers(r.transfers)
-        lastGoodPage = r.page
-        rebuildFromMap()
-        setCurrentPage(r.page)
-        if (!r.hasMore) {
-          anyDone = true
-          break
-        }
-        if (dedupMapRef.current.size >= MAX_TRANSFERS) {
-          console.log(
-            `🛑 [transfers] Hit ${MAX_TRANSFERS} transfer cap, stopping auto-load`
-          )
-          anyDone = true
-          break
+          mergeTransfers(r.transfers)
+          lastGoodPage = r.page
+          rebuildFromMap()
+          setCurrentPage(r.page)
+          if (!r.hasMore) {
+            anyDone = true
+            shouldStop = true
+            break
+          }
+          if (dedupMapRef.current.size >= MAX_TRANSFERS) {
+            console.log(
+              `🛑 [transfers] Hit ${MAX_TRANSFERS} transfer cap, stopping auto-load`
+            )
+            anyDone = true
+            shouldStop = true
+            break
+          }
         }
       }
 
