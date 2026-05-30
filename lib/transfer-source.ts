@@ -7,6 +7,8 @@ export type TransferSourceKind =
   | "fundraising"
   | "prediction"
   | "competition"
+  | "paid_post"
+  | "paid_interaction"
   | "unknown_post_action"
   | "unknown_account_action"
   | "known_system_transfer"
@@ -23,6 +25,12 @@ export type TransferSource = {
   postId?: string
   eventName?: string
   counterpartyAddress?: string
+  // The party on the *other* side of a two-sided action (e.g. Hey paid
+  // interaction): the one who paid to comment/quote/repost. We keep both
+  // addresses so the displayed counterparty can be picked per direction —
+  // the post author for the payer's outgoing row, the payer for the author's
+  // incoming row. See resolveDisplayCounterpartyAddress.
+  payerAddress?: string
   counterpartyRole?:
     | "account"
     | "post_author"
@@ -30,6 +38,7 @@ export type TransferSource = {
     | "claimer"
     | "sponsor"
     | "user"
+    | "payer"
     | "winner"
     | "recipient"
     | "creator"
@@ -112,6 +121,14 @@ export const ORB_ACTIONS = {
     kind: "profile_tip",
     label: "NFT tip",
   },
+  // Hey's "pay to post" — a PostAction the author attaches to their own post;
+  // the flat fee (e.g. 0.03 GHO) is routed entirely to Hey's treasury. Seen via
+  // Lens_ActionHub_PostAction_Executed with postAuthor === msgSender.
+  PAID_POST: {
+    address: "0xaeab214c5e2f44b2dc22fb426238292b128163c2",
+    kind: "paid_post",
+    label: "Paid post",
+  },
   TREASURY: {
     address: "0x77151170d5fd8ea64679876cdfa662fd35ef8987",
     kind: "known_system_transfer",
@@ -163,6 +180,7 @@ const actionByAddress = new Map<string, KnownAction>(
     ORB_ACTIONS.PREDICTION,
     ORB_ACTIONS.COMPETITION,
     ORB_ACTIONS.TIP_NFT,
+    ORB_ACTIONS.PAID_POST,
   ].map((action) => [action.address, action])
 )
 
@@ -366,6 +384,28 @@ const SWAP_EVENT_TOPICS = new Set([
   id("Swap(address,uint256,uint256,uint256,uint256,address)"),
 ])
 
+// --- Hey "pay per interaction" (InteractionPrepaid) ---
+// Hey now charges GHO to comment / quote / repost. The fee splits between the
+// *target post's author* (income) and Hey's treasury. It's emitted by a
+// fee-splitter contract wrapped inside the payer's Lens-account
+// executeTransactions() call — there's no ActionHub or ORB-domain event, so the
+// old classifier fell through to "Unknown". We key off the event topic.
+//   InteractionPrepaid(source, _key, postId, account, kind, recipient, amount1, amount2, ts)
+//   · account   = the payer (the one commenting / quoting / reposting)
+//   · postId    = the post being acted on
+//   · recipient = that post's author — earns `amount2` when it's > 0
+// `kind` (1/2/3) carries a price tier but does NOT cleanly map to
+// comment/quote/repost, so we stay at the coarse "paid interaction" bucket.
+export const HEY_INTERACTION_SPLITTER =
+  "0x9060719480d5a431dd3ce865a1da97822288906e"
+
+const interactionPrepaidIface = new Interface([
+  "event InteractionPrepaid(address indexed source, bytes32 indexed key, uint256 indexed postId, address account, uint8 kind, address recipient, uint256 amount1, uint256 amount2, uint256 timestamp)",
+])
+const INTERACTION_PREPAID_TOPIC = id(
+  "InteractionPrepaid(address,bytes32,uint256,address,uint8,address,uint256,uint256,uint256)"
+)
+
 const unknownSource = (): TransferSource => ({
   kind: "unknown",
   label: "Unknown",
@@ -482,6 +522,44 @@ function sourceFromOrbEvent(log: LogLike): TransferSource | null {
   }
 }
 
+function sourceFromInteractionPrepaid(log: LogLike): TransferSource | null {
+  if (log.topics?.[0] !== INTERACTION_PREPAID_TOPIC) return null
+
+  try {
+    const parsed = interactionPrepaidIface.parseLog({
+      topics: [...(log.topics ?? [])],
+      data: log.data ?? "0x",
+    })
+    if (!parsed) return null
+
+    const postId = parsed.args.postId as bigint
+    // Verified on-chain (n=40): `account` is the interactor who paid to
+    // comment/quote/repost; `recipient` is the post author who earns the cut
+    // (recipient === post author in every non-self interaction). When someone
+    // acts on their *own* post the author-cut routes elsewhere, so the two can
+    // coincide or diverge — resolveDisplayCounterpartyAddress handles both.
+    const account = parsed.args.account as string
+    const recipient = parsed.args.recipient as string
+
+    return {
+      kind: "paid_interaction",
+      label: "Paid interaction", // contextualized to income/outcome later
+      confidence: "high",
+      contractAddress: normalizeAddress(log.address) ?? HEY_INTERACTION_SPLITTER,
+      contractLabel: "Hey interaction",
+      eventName: parsed.name,
+      postId: postId.toString(),
+      // Default (the payer's outgoing row): the counterparty is the post author.
+      counterpartyAddress: recipient,
+      counterpartyRole: "post_author",
+      // The payer, surfaced as the counterparty on the author's incoming row.
+      payerAddress: account,
+    }
+  } catch {
+    return null
+  }
+}
+
 function sourceFromSwapEvent(input: ClassifyTransferSourceInput): TransferSource | null {
   if (!(input.logs ?? []).some((log) => log.topics?.[0] && SWAP_EVENT_TOPICS.has(log.topics[0]))) {
     return null
@@ -543,6 +621,13 @@ export function classifyTransferSource(
   if (actionHubSource) return actionHubSource
   if (orbEventSource) return orbEventSource
 
+  let interactionSource: TransferSource | null = null
+  for (const log of input.logs ?? []) {
+    interactionSource = sourceFromInteractionPrepaid(log)
+    if (interactionSource) break
+  }
+  if (interactionSource) return interactionSource
+
   const swapSource = sourceFromSwapEvent(input)
   if (swapSource) return swapSource
 
@@ -556,6 +641,21 @@ export function contextualizeTransferSource(
   source: TransferSource,
   direction: "income" | "outcome"
 ): TransferSource {
+  // Hey paid interaction: you paying to comment/quote/repost vs. earning when
+  // someone does it to your post. The meaningful counterparty flips with
+  // direction — the post author when you pay, the payer when you earn.
+  if (source.kind === "paid_interaction") {
+    if (direction === "income") {
+      return {
+        ...source,
+        label: "Interaction income",
+        counterpartyAddress: source.payerAddress ?? source.counterpartyAddress,
+        counterpartyRole: "payer",
+      }
+    }
+    return { ...source, label: "Paid interaction" }
+  }
+
   if (source.kind !== "bridge") return source
 
   return {
@@ -575,6 +675,19 @@ export function resolveDisplayCounterpartyAddress({
   profileAddress: string
   rawCounterpartyAddress?: string | null
 }) {
+  // Hey paid interaction has two real parties — the payer and the post author.
+  // Show whichever one isn't the profile being viewed: the author sees the
+  // payer on their income row, the payer sees the author on their outgoing row.
+  // If both coincide with the profile (acting on your own post), fall back.
+  if (source.kind === "paid_interaction") {
+    const profile = normalizeAddress(profileAddress)
+    const authorAddr = source.counterpartyAddress
+    const payerAddr = source.payerAddress
+    if (payerAddr && normalizeAddress(payerAddr) !== profile) return payerAddr
+    if (authorAddr && normalizeAddress(authorAddr) !== profile) return authorAddr
+    return fallbackAddress
+  }
+
   const rawCounterparty = normalizeAddress(rawCounterpartyAddress)
   if (rawCounterparty === ORB_ACTIONS.TREASURY.address) return fallbackAddress
 

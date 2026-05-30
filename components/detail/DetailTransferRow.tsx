@@ -16,6 +16,8 @@ const sourceChipClasses: Record<string, string> = {
   fundraising: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
   prediction: "bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20",
   competition: "bg-cyan-500/10 text-cyan-300 border-cyan-500/20",
+  paid_post: "bg-rose-500/10 text-rose-300 border-rose-500/20",
+  paid_interaction: "bg-amber-500/10 text-amber-300 border-amber-500/20",
   unknown_post_action: "bg-zinc-700/30 text-zinc-300 border-zinc-600/40",
   unknown_account_action: "bg-zinc-700/30 text-zinc-300 border-zinc-600/40",
   known_system_transfer: "bg-blue-500/10 text-blue-300 border-blue-500/20",
