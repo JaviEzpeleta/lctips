@@ -26,6 +26,8 @@ const transferIface = new ethers.Interface([
 ])
 
 const RPC_TIMEOUT_MS = 20_000
+const POST_SLUG_TIMEOUT_MS = 6_000
+const LENS_GRAPHQL_ENDPOINT = "https://api.lens.xyz/graphql"
 const MAX_DETAIL_PAGE = 50
 const limiter = createFixedWindowRateLimiter({ limit: 60, windowMs: 60_000 })
 
@@ -84,6 +86,11 @@ const unknownTransferSource = () => classifyTransferSource({ logs: [] })
 const transferContextCache = new LRUCache<string, { v: TransferResolution }>({
   max: 10_000,
   ttl: 7 * 24 * 60 * 60 * 1000, // 7 days
+})
+
+const postSlugCache = new LRUCache<string, { v: string | null }>({
+  max: 10_000,
+  ttl: 7 * 24 * 60 * 60 * 1000,
 })
 
 function withTimeout<T>(
@@ -200,6 +207,80 @@ async function resolveTransferContext(
 
   if (cacheable) transferContextCache.set(cacheKey, { v: result })
   return result
+}
+
+async function resolveLensPostSlug(postId: string): Promise<string | null> {
+  const cachedEntry = postSlugCache.get(postId)
+  if (cachedEntry !== undefined) return cachedEntry.v
+
+  try {
+    const response = await withTimeout(
+      fetch(LENS_GRAPHQL_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `
+            query PostSlug($post: PostId!) {
+              post(request: { post: $post }) {
+                ... on Post {
+                  slug
+                }
+              }
+            }
+          `,
+          variables: { post: postId },
+        }),
+      }),
+      POST_SLUG_TIMEOUT_MS,
+      `resolvePostSlug(${postId.slice(0, 10)}...)`
+    )
+    if (!response?.ok) return null
+
+    const json = await response.json()
+    const slug =
+      typeof json.data?.post?.slug === "string" ? json.data.post.slug : null
+    postSlugCache.set(postId, { v: slug })
+    return slug
+  } catch (error) {
+    console.warn(`🔗⚠️ [detail-page] Failed to resolve post slug ${postId}:`, error)
+    return null
+  }
+}
+
+async function attachPostSlugs(
+  transfers: DetailTransfer[]
+): Promise<DetailTransfer[]> {
+  const postIds = [
+    ...new Set(
+      transfers
+        .map((transfer) => transfer.source?.postId)
+        .filter((postId): postId is string => !!postId)
+    ),
+  ]
+  if (postIds.length === 0) return transfers
+
+  const slugEntries = await Promise.all(
+    postIds.map(
+      async (postId) => [postId, await resolveLensPostSlug(postId)] as const
+    )
+  )
+  const slugsByPostId = new Map(slugEntries)
+
+  return transfers.map((transfer) => {
+    const postId = transfer.source?.postId
+    if (!transfer.source || !postId) return transfer
+
+    const postSlug = slugsByPostId.get(postId)
+    if (!postSlug) return transfer
+
+    return {
+      ...transfer,
+      source: {
+        ...transfer.source,
+        postSlug,
+      },
+    }
+  })
 }
 
 async function processTransferPage(
@@ -326,7 +407,9 @@ async function processTransferPage(
     return acc
   }, new Map<string, DetailTransfer>())
 
-  const transfers = [...deduped.values()].sort(
+  const transfersWithPostSlugs = await attachPostSlugs([...deduped.values()])
+
+  const transfers = transfersWithPostSlugs.sort(
     (a, b) =>
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   )

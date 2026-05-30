@@ -1,6 +1,7 @@
 "use client"
 
 import { DetailTransfer } from "@/lib/types"
+import type { TransferSource } from "@/lib/transfer-source"
 import { formatLargeNumber, formatRelativeTime } from "@/lib/utils"
 import { motion } from "framer-motion"
 import { ArrowDownLeft, ArrowUpRight, ExternalLink } from "lucide-react"
@@ -42,7 +43,7 @@ const DetailTransferRow = ({
   const timestamp = new Date(transfer.timestamp)
   const formattedTime = formatRelativeTime(timestamp)
   const fullTimestamp = format(timestamp, "MMM d, yyyy 'at' HH:mm")
-  const source = transfer.source ?? {
+  const source: TransferSource = transfer.source ?? {
     kind: "unknown",
     label: "Unknown",
     confidence: "unknown",
@@ -50,6 +51,8 @@ const DetailTransferRow = ({
   const sourceTitle = source.contractLabel
     ? `${source.label} via ${source.contractLabel}`
     : source.label
+  const postPathId = source.postSlug ?? source.postId
+  const postHref = postPathId ? `https://palus.app/posts/${postPathId}` : null
 
   const getTokenIcon = (symbol: string) => {
     switch (symbol) {
@@ -123,14 +126,28 @@ const DetailTransferRow = ({
           >
             <span>{formattedTime}</span>
             <span className="text-zinc-700">·</span>
-            <span
-              className={`inline-flex max-w-full items-center rounded-full border px-1.5 py-0.5 leading-none ${
-                sourceChipClasses[source.kind] ?? sourceChipClasses.unknown
-              }`}
-              title={sourceTitle}
-            >
-              {source.label}
-            </span>
+            {postHref ? (
+              <Link
+                href={postHref}
+                target="_blank"
+                className={`inline-flex max-w-full items-center gap-1 rounded-full border px-1.5 py-0.5 leading-none transition-colors hover:border-white/30 hover:text-white ${
+                  sourceChipClasses[source.kind] ?? sourceChipClasses.unknown
+                }`}
+                title={`${sourceTitle} · Open post on Palus`}
+              >
+                <span className="truncate">{source.label}</span>
+                <ExternalLink className="h-2.5 w-2.5 flex-shrink-0" />
+              </Link>
+            ) : (
+              <span
+                className={`inline-flex max-w-full items-center rounded-full border px-1.5 py-0.5 leading-none ${
+                  sourceChipClasses[source.kind] ?? sourceChipClasses.unknown
+                }`}
+                title={sourceTitle}
+              >
+                {source.label}
+              </span>
+            )}
           </div>
         </div>
 

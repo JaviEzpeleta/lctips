@@ -23,6 +23,7 @@ export type TransferSource = {
   contractAddress?: string
   contractLabel?: string
   postId?: string
+  postSlug?: string
   eventName?: string
   counterpartyAddress?: string
   // The party on the *other* side of a two-sided action (e.g. Hey paid
