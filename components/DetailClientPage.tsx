@@ -243,6 +243,62 @@ const DetailClientPage = ({
     </span>
   ) : null
 
+  // Sent/Received column header (arrow chip + label + count + GHO total).
+  // Used by the 2xl 4-column dashboard for the two ranking columns.
+  const directionColumnHeader = (direction: "sent" | "received") => {
+    const isSent = direction === "sent"
+    const count = isSent ? sentTransfers.length : receivedTransfers.length
+    const total = isSent ? ghoTotals?.sent : ghoTotals?.received
+    return (
+      <div className="flex items-center gap-2 mb-3 px-2">
+        <div
+          className={`w-6 h-6 rounded-full flex items-center justify-center ${
+            isSent ? "bg-orange-500/15" : "bg-emerald-500/15"
+          }`}
+        >
+          {isSent ? (
+            <ArrowUpRight className="w-3.5 h-3.5 text-orange-400" />
+          ) : (
+            <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-400" />
+          )}
+        </div>
+        <span
+          className={`text-sm font-semibold ${
+            isSent ? "text-orange-300" : "text-emerald-300"
+          }`}
+        >
+          {isSent ? "Sent" : "Received"}
+        </span>
+        <span className="text-xs text-zinc-500">{count}</span>
+        {total !== undefined && total > 0 && (
+          <span
+            className={`text-xs tabular-nums ${
+              isSent ? "text-orange-300/80" : "text-emerald-300/80"
+            }`}
+          >
+            <NumberFlow
+              value={total}
+              prefix="$"
+              format={
+                total >= 10000
+                  ? {
+                      notation: "compact",
+                      compactDisplay: "short",
+                      maximumFractionDigits: 1,
+                    }
+                  : {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    }
+              }
+            />
+            {" "}GHO
+          </span>
+        )}
+      </div>
+    )
+  }
+
   const errorBanner = loadError && !isLoadingPage && (
     <div className="mt-4 px-4 py-3 rounded-lg bg-amber-500/10 ring-1 ring-amber-500/20 text-amber-200/90 text-sm flex items-center justify-between gap-3">
       <span>{loadError}</span>
@@ -736,8 +792,8 @@ const DetailClientPage = ({
             {loadMorePagesButton}
           </div>
 
-          {/* ── XL 3-Column Dashboard layout ── */}
-          <div className="hidden xl:block">
+          {/* ── XL 3-Column Dashboard layout (1280–1535px) ── */}
+          <div className="hidden xl:block 2xl:hidden">
             {filteredTransfers.length === 0 && !isStreaming ? (
               <BlurryEntrance delay={0.05}>
                 <div className="grid grid-cols-[300px_1fr] gap-6 items-start">
@@ -929,6 +985,111 @@ const DetailClientPage = ({
             )}
 
             {/* Load more pages button below XL columns */}
+            {errorBanner}
+            {loadMorePagesButton}
+          </div>
+
+          {/* ── 2XL 4-Column Dashboard layout (≥1536px) ── */}
+          <div className="hidden 2xl:block">
+            <div className="grid grid-cols-[300px_1.2fr_1fr_1fr] gap-6 items-start">
+              {/* Column 1 — Calendar sidebar */}
+              <BlurryEntrance delay={0.05}>
+                <div className="sticky top-4">
+                  <TipCalendar
+                    currentMonth={currentMonth}
+                    setCurrentMonth={setCurrentMonth}
+                    selectedDate={selectedDate}
+                    setSelectedDate={setSelectedDate}
+                    datesWithTips={datesWithTipsSet}
+                  />
+                  <div className="mt-3">
+                    {tokenFilterTabs}
+                    <div className="text-xs text-zinc-500 px-2 mb-2">
+                      {filteredTransfers.length} transfer
+                      {filteredTransfers.length !== 1 ? "s" : ""}
+                      {selectedDate && <span> on {selectedDate}</span>}
+                      {streamingIndicator}
+                    </div>
+                    <TotalsSummary tokenTotals={tokenTotals} isStreaming={isStreaming} />
+                  </div>
+                </div>
+              </BlurryEntrance>
+
+              {/* Column 2 — Individual transactions feed (both directions) */}
+              <BlurryEntrance delay={0.1}>
+                <div>
+                  <div className="flex items-center gap-2 mb-3 px-2">
+                    <span className="text-sm font-semibold text-zinc-200">
+                      Transactions
+                    </span>
+                    <span className="text-xs text-zinc-500">
+                      {filteredTransfers.length}
+                    </span>
+                    {streamingIndicator}
+                  </div>
+                  <div className="space-y-0.5">
+                    {visibleTransfers.map((transfer, index) => (
+                      <DetailTransferRow
+                        key={`tsx-${transfer.transactionHash}-${transfer.direction}-${transfer.symbol}`}
+                        transfer={transfer}
+                        index={index}
+                      />
+                    ))}
+                  </div>
+                  {filteredTransfers.length === 0 && !isStreaming && (
+                    <div className="text-center py-12 text-zinc-500 text-sm">
+                      No transfers found
+                    </div>
+                  )}
+                  {hasMore && (
+                    <button
+                      onClick={() =>
+                        setVisibleCount((prev) => prev + ITEMS_PER_PAGE)
+                      }
+                      className="w-full mt-4 py-2 text-sm text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-zinc-800/50 rounded-lg transition-colors"
+                    >
+                      Load more ({filteredTransfers.length - visibleCount} remaining)
+                    </button>
+                  )}
+                </div>
+              </BlurryEntrance>
+
+              {/* Column 3 — Top Sent (GHO, all-time ranking) */}
+              <BlurryEntrance delay={0.15}>
+                <div className="sticky top-4">
+                  {directionColumnHeader("sent")}
+                  <TopCounterparties
+                    transfers={allTransfers}
+                    direction="sent"
+                    isStreaming={isStreaming}
+                  />
+                  {sentTransfers.length === 0 && !isStreaming && (
+                    <div className="text-center py-8 text-zinc-600 text-sm">
+                      No sent transfers
+                    </div>
+                  )}
+                </div>
+              </BlurryEntrance>
+
+              {/* Column 4 — Top Received (GHO, all-time ranking) */}
+              <BlurryEntrance delay={0.2}>
+                <div className="sticky top-4">
+                  {directionColumnHeader("received")}
+                  <TopCounterparties
+                    transfers={allTransfers}
+                    direction="received"
+                    isStreaming={isStreaming}
+                  />
+                  {receivedTransfers.length === 0 && !isStreaming && (
+                    <div className="text-center py-8 text-zinc-600 text-sm">
+                      No received transfers
+                    </div>
+                  )}
+                </div>
+              </BlurryEntrance>
+            </div>
+
+            {/* Load more pages button below 2XL columns */}
             {errorBanner}
             {loadMorePagesButton}
           </div>
